@@ -10,8 +10,9 @@
         many times already. they prefer small embedded devices to run
         them. some stuff from seeed/waveshare looks vibe coded though.
 -   the western way of doing this seems to be with pimoroni\'s inky line
-    of e-ink displays. they are not as based, and pi-only, and have a
-    python library. they are probably easier to set up.
+    of e-ink displays (NOTE see inkplate). they are not as based, and
+    pi-only, and have a python library. they are probably easier to set
+    up.
     -   <https://github.com/pimoroni/inky>
     -   <https://www.reddit.com/r/raspberry_pi/comments/1pictby/e_ink_picture_frame/>
 -   <https://www.youtube.com/watch?v=L5PvQj1vfC4>
@@ -30,6 +31,13 @@
     display, relies on webserver + web ui. frameos CAN run on the same
     pi zero that\'s driving the frame, but MUST have a pi to be driving
     the frame.
+-   <https://soldered.com/product/inkplate-6color-e-paper-display/>
+    -   someone pointed out inkplate. similar to waveshare/seeed (but
+        solderedelectronics is EU) they have almost fully \"done\"
+        projects
+    -   displays sold with esp32 and pre flashed firmware which can do
+        dithering and resizing(!? and converting?). cons: only 1 small
+        color display.
 
 ### relevant software
 
@@ -42,6 +50,10 @@
     -   original inky python driver lib
 -   frameos\' drivers are all python too
     -   <https://github.com/FrameOS/frameos/tree/main/backend/app/drivers>
+-   but inkplate is micropython designed for esp32
+    -   <https://github.com/SolderedElectronics/inkplate-micropython>
+    -   bring your own server (q: any examples where people have used
+        inkplate w esp32 http server?)
 
 ## idea
 
