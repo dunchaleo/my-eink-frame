@@ -1,0 +1,78 @@
+## links
+
+### solutions
+
+-   <https://www.waveshare.com/wiki/PhotoPainter_(B)>
+    -   waveshare has good software and guides, converting/dithering
+        scripts, etc. photopainter works as-is, can be reflashed etc.
+-   <https://www.youtube.com/watch?v=9gdemeaTfyI>
+    -   china in general seems to have solved the e-ink picture frame
+        many times already. they prefer small embedded devices to run
+        them. some stuff from seeed/waveshare looks vibe coded though.
+-   the western way of doing this seems to be with pimoroni\'s inky line
+    of e-ink displays. they are not as based, and pi-only, and have a
+    python library. they are probably easier to set up.
+    -   <https://github.com/pimoroni/inky>
+    -   <https://www.reddit.com/r/raspberry_pi/comments/1pictby/e_ink_picture_frame/>
+-   <https://www.youtube.com/watch?v=L5PvQj1vfC4>
+    -   heres somebody using a full pi zero and the inky display to
+        accomplish something close to what i want
+-   <https://github.com/mehdi7129/inky-photo-frame>
+    -   heres somebody who vibe coded something for pi zero + inky,
+        maybe it \"just works\"? not ideal uploading (smb)
+-   heres somebody with a pretty elegant method, using a non-pimoroni
+    display (not dependent on their python lib) and opting for a plug-in
+    sd card. still using a full pi though.
+    -   <https://www.youtube.com/watch?v=lWrWu7VYAFQ>
+    -   <https://github.com/EnriqueNeyra/eInkFrame>
+-   <https://github.com/FrameOS/frameos>
+-   frameos seeems to make a point of \"plug and play\" for ANY type of
+    display, relies on webserver + web ui. frameos CAN run on the same
+    pi zero that\'s driving the frame, but MUST have a pi to be driving
+    the frame.
+
+### relevant software
+
+-   <https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/lib/waveshare_epd>
+    -   original waveshare python driver lib
+    -   rust and go versions???
+        -   <https://github.com/nii236/go-waveshare-epaper>
+        -   <https://github.com/caemor/epd-waveshare>
+-   <https://github.com/pimoroni/inky>
+    -   original inky python driver lib
+-   frameos\' drivers are all python too
+    -   <https://github.com/FrameOS/frameos/tree/main/backend/app/drivers>
+
+## idea
+
+the inky python library is not for micropython/circuitpython. so you
+have to use a full pi, not an esp32 or pi pico (though the reddit guy
+got that to work). i still dont know how the chinese way works; it\'s
+less clear but it seems to be better in some ways.
+
+maybe compromise with 2 main options:
+
+-   have to keep it powered all the time: pi zero on the frame can be
+    running a server all the time, users can connect to it and upload
+    pictures and change settings.
+-   battery powered: esp32/pico can be programmed to read data from
+    sd/usb drive (maybe can accept any formatting, and can also take
+    care of image conversion (or not, image data might need to be highly
+    regular coming in)) but it\'s up to the user to prepare the drive
+    with pictures first.
+-   (third option): battery powered but networked, there has to be
+    another server running that sends data to the frame (like the reddit
+    guy)
+
+for now
+
+commit to the pi zero, try to make it easy to redo on esp32. avoid bash
+scripts etc. make efforts to keep power consumption low but lean towards
+it being plugged in. most importantly, commit to an http server being
+run on the device and doing lan wifi, user should be able to log in on
+browser on phone and upload pics bare minimum. theres still a ton of
+different possible implementation details/configurations from that. also
+probably a really bad idea to have the thing driving the frame do the
+image conversions. needs to be a server backend job (which happens to be
+the same rpi zero driving the frame) or could even make client do it
+(webasm, you can do pillow in piodide).
