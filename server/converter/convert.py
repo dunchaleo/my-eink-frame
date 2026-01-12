@@ -9,6 +9,12 @@
 # happen on that server.
 # maybe dithering could still be done on embedded device given highly regular/homogenous input image data.
 
+#IDEA want multiple sort options... what order are POSTs made via the html5 multiple file selection dialogue?
+#A: "the order of user selection" (all platforms?). insertion sort would be pretty ideal for someone on their phone, uploading the last 10 photos in gallery, because they will probably go left->right top->bottom.
+#but e.g. what if they scrolled down 50 where they know they want to start, and picked right->left bottom->top? then insertion is worst case.
+#(and how do you know if safari actually does POST in the order of dialogue box selection?)
+#you could have a dynamic insertion sort: if the first 5 insertion attempts are bad, reverse them, and start comparing in reverse from then on.
+
 import sys
 import os.path
 from PIL import Image, ImagePalette, ImageOps, ExifTags
