@@ -1,3 +1,26 @@
+#images
+*.jpeg
+*.jpg
+*.png
+*.gif
+*.svg
+*.webp
+*.bmp
+*.jfif
+*.heic
+*.JPEG
+*.JPG
+*.PNG
+*.GIF
+*.SVG
+*.WEBP
+*.BMP
+*.JFIF
+*.HEIC
+
+#for reference
+saschiwy_heic_converter.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

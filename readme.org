@@ -16,6 +16,8 @@
   - https://github.com/EnriqueNeyra/eInkFrame
 - https://github.com/FrameOS/frameos
 - frameos seeems to make a point of "plug and play" for ANY type of display, relies on webserver + web ui. frameos CAN run on the same pi zero that's driving the frame, but MUST have a pi to be driving the frame.
+- https://kyle.cascade.family/posts/an-eink-family-calendar/
+  - this guy got around the issue of how/where to use a server by doing all image conversions/generation/hosting on his router (all in go), so they can be fetched whenever. ~online_image~ in esphome is used to get image data from url but home assistant is not running at all. all the hard stuff is done in the go code.
 - https://soldered.com/product/inkplate-6color-e-paper-display/
   - someone pointed out inkplate. similar to waveshare/seeed (but solderedelectronics is EU) they have almost fully "done" projects
   - displays sold with esp32 and pre flashed firmware which can do dithering and resizing(!? and converting?). cons: only 1 small color display.
