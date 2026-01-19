@@ -1,0 +1,27 @@
+#+title: Notes on ssid/pass config feature
+
+** premise
+- [ ] TODO find equivalent nmcli command (to nmtui edit->add), add a service that /(execs a python script that)/
+  1. mounts /dev/sda (sdcard on rpi is =mmcblk0= + =p1= /boot/firmware, =p2= /)
+     - (on esp32, no easy way to read usb drive; sd card module has a lot of support though).
+     - see [[udev rule side quest]]
+  2. reads file wifi.txt ("ssid\npsk")
+  3. execs nmcli to add it
+  4. follows [[https://github.com/torfsen/python-systemd-tutorial]] (?)
+     - does this really need to not be bash? only reason for avoiding bash was future portability to circuitpython /maybe/.
+     - it might still be a good idea just in case this area of project should be expanded. e.g. want to read more info off of usb, especially if more info in txt file
+** <<udev rule side quest>>
+- detect any new block device being plugged in
+- https://www.downtowndougbrown.com/2014/03/linux-udev-rules/
+- =/ssh:root@piframe:/etc/udev/rules.d/90-myrule.rules=
+#+begin_src
+ACTION=="add", RUN+="/bin/bash /home/piframe/my-script.sh"
+#+end_src
+- =/ssh:piframe@piframe:/home/piframe/my-script.sh=
+#+begin_src
+#!/bin/bash
+/usr/bin/echo "something just got plugged in" >> /home/piframe/test.txt
+#+end_src
+** script
+- on embedded, this would have to be a lot different anyway because we cant passively scan for sdcard insertion. might be good here.
+- ~lsblk --json -o NAME,MOUNTPOINT~ gets devices in json!

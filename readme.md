@@ -1,19 +1,19 @@
 
 # Table of Contents
 
-1.  [links](#org1c1db99)
-    1.  [solutions](#org12c591b)
-    2.  [relevant software](#org4c52c18)
-2.  [idea](#orga008595)
-        1.  [for now](#org45bbf8c)
+1.  [links](#org55d391b)
+    1.  [solutions](#org8dd43f6)
+    2.  [relevant software](#org7931197)
+2.  [idea](#org61f00ad)
+        1.  [for now](#org57dbfd6)
 
 
-<a id="org1c1db99"></a>
+<a id="org55d391b"></a>
 
 # links
 
 
-<a id="org12c591b"></a>
+<a id="org8dd43f6"></a>
 
 ## solutions
 
@@ -32,7 +32,7 @@
     -   <https://www.youtube.com/watch?v=lWrWu7VYAFQ>
     -   <https://github.com/EnriqueNeyra/eInkFrame>
 -   <https://github.com/FrameOS/frameos>
--   frameos seeems to make a point of &ldquo;plug and play&rdquo; for ANY type of display, relies on webserver + web ui. frameos CAN run on the same pi zero that&rsquo;s driving the frame, but MUST have a pi to be driving the frame.
+    -   frameos seeems to make a point of &ldquo;plug and play&rdquo; for ANY type of display, relies on webserver + web ui. frameos CAN run on the same pi zero that&rsquo;s driving the frame, but MUST have a pi to be driving the frame.
 -   <https://kyle.cascade.family/posts/an-eink-family-calendar/>
     -   this guy got around the issue of how/where to use a server by doing all image conversions/generation/hosting on his router (all in go), so they can be fetched whenever. `online_image` in esphome is used to get image data from url but home assistant is not running at all. all the hard stuff is done in the go code.
 -   <https://soldered.com/product/inkplate-6color-e-paper-display/>
@@ -40,7 +40,7 @@
     -   displays sold with esp32 and pre flashed firmware which can do dithering and resizing(!? and converting?). cons: only 1 small color display.
 
 
-<a id="org4c52c18"></a>
+<a id="org7931197"></a>
 
 ## relevant software
 
@@ -49,22 +49,29 @@
     -   rust and go versions???
         -   <https://github.com/nii236/go-waveshare-epaper>
         -   <https://github.com/caemor/epd-waveshare>
--   <https://github.com/pimoroni/inky>
-    -   original inky python driver lib
+-   pimorini
+    -   <https://github.com/pimoroni/inky>
+        (original inky python driver lib)
+    -   *third-party* circuitpython inky drivers <https://github.com/bablokb/circuitpython-inky>
+        -   q: how similar are they to inkplate&rsquo;s micropython drivers?
+        -   only 7.5 spectra 6 supported?? what about the older non s6 13 inch??
+    -   pimorini also has a product called inky-frame, largest 7in. includes pi pico.
+        -   [main driver seems to be pico graphics](https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/modules/picographics/README.md#supported-displays) which dont support inky impression&#x2026; main inky-frame github page makes point about micropython having ~190k ram and drawing to 7in display takes 150k. i still think embedded would be better if the problems of user uploads and image manipulation was solvable that way
 -   frameos&rsquo; drivers are all python too
     -   <https://github.com/FrameOS/frameos/tree/main/backend/app/drivers>
 -   but inkplate is micropython designed for esp32
     -   <https://github.com/SolderedElectronics/inkplate-micropython>
     -   bring your own server (q: any examples where people have used inkplate w esp32 http server?)
+-   (hardware)
+    -   helpful thread:<https://forums.pimoroni.com/t/how-to-connect-pico-to-inky-impression-7-3/24715/9>
 
 
-<a id="orga008595"></a>
+<a id="org61f00ad"></a>
 
 # idea
 
 the inky python library is not for micropython/circuitpython. so you have to use a full pi, not an esp32 or pi pico (though the reddit guy got that to work).
 i still dont know how the chinese way works; it&rsquo;s less clear but it seems to be better in some ways.
-
 maybe compromise with 2 main options:
 
 -   have to keep it powered all the time: pi zero on the frame can be running a server all the time, users can connect to it and upload pictures and change settings.
@@ -72,7 +79,7 @@ maybe compromise with 2 main options:
 -   (third option): battery powered but networked, there has to be another server running that sends data to the frame (like the reddit guy)
 
 
-<a id="org45bbf8c"></a>
+<a id="org57dbfd6"></a>
 
 ### for now
 
