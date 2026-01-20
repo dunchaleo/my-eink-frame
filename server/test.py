@@ -25,8 +25,10 @@ class Meta:
         with open('./files.csv', 'r') as f:
             reader = csv.reader(f)
             for row in reader:
-                for col in range(sortby):
-                    self.files.append(row[col])
+                if(sortby > 0):
+                    self.files.append(row[0],row[sortby])
+                else:
+                    self.files.append(row[0])
     def fwrite():
         with open('./files.csv', 'w') as f: #w mode clears file first
             writer = csv.writer(f)
