@@ -11,24 +11,18 @@ import csv
 app = Microdot()
 
 server_covnersion = True #convert files in browser or on device
-sortby = (1,True) #0: filename, 1:datetime, 2:?. a
-
-print(sortby)
 
 class Meta:
     #row in files.csv has ``filename,timestamp'' (+ more cols?), see convert()
-    files = [] #like the query select filename, metadata from files.csv
+    files = []
     ordering = [] #array of indexes--this is what actually gets sorted!
     sortby = 1 #default sorting is timestamp,
-    asc = True # (ascending)
+    desc = False# (ascending)
     def mwrite():
         with open('./files.csv', 'r') as f:
             reader = csv.reader(f)
             for row in reader:
-                if(sortby > 0):
-                    self.files.append(row[0],row[sortby])
-                else:
-                    self.files.append(row[0])
+                self.files.append(row)
     def fwrite():
         with open('./files.csv', 'w') as f: #w mode clears file first
             writer = csv.writer(f)
@@ -36,13 +30,18 @@ class Meta:
                 f.write(row)
     def mfree():
         self.files = []
-        self.ordering = []
-    def chsort(sortby, asc):
-
+        #self.ordering = []
+    def chsort(sortby, desc):
+        #could this could be optimized a lot?
+        ordering.sort(reverse=desc, key=lambda i: files[i])
         #also a setter
         self.sortby=sortby
         self.asc=asc
     def insert(newfile): #newfile looks just like a row of files.csv
+        #see comment in ./converter/convert.py,
+        #by expected use case insertion sort is probably really good here,
+        #unless user picked from their recents the wrong way,
+        #then comparison just needs to be reversed first (but how can you tell?)
 
 
 #usage:
