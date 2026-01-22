@@ -13,16 +13,19 @@ app = Microdot()
 server_covnersion = True #convert files in browser or on device
 
 class Meta:
+    #on instantiation, we expect files.csv to be in the right order.
     def __init__(self):
         self.files = [] #row in files.csv has ``filename,timestamp'' (+ more cols?), see convert()
-        self.ordering = [] #array of indexes--this is what actually gets sorted!
+        self.ordering = [] #array of indexes--this is what actually gets sorted in mem! TODO can this be made a stream/generator?
         self.sortby = 1 #default sorting is timestamp,
         self.desc = False# (ascending)
     def mwrite(self):
+        #only do once on init
         with open('./files.csv', 'r') as f:
             reader = csv.reader(f)
             for row in reader:
                 self.files.append(row)
+                self.ordering.append(i)
     def fwrite(self):
         with open('./files.csv', 'w') as f: #w mode clears file first
             writer = csv.writer(f)
@@ -33,6 +36,8 @@ class Meta:
         self.ordering = []
     def chsort(self, sortby, desc):
         #could this could be optimized a lot?
+        #easy example: if just toggling desc/asc, reversal is faster than list.sort()
+        #  (TODO look into ``reversed(list)'' rather than ``list.reverse''--still O(n) for file writing lol)
         self.ordering.sort(reverse=desc, key=lambda i: files[i])
         #also a setter
         self.sortby=sortby
@@ -42,21 +47,25 @@ class Meta:
         #by expected use case insertion sort is probably really good here,
         #unless user picked from their recents the wrong way,
         #then comparison just needs to be reversed first (but how can you tell?)
-        for i in files:
-            if self.compare(newfile[sortby], files[i][sortby]):
-                pos += 1
+        pos = len(files)+1
+        for i in range(pos-1,-1,-1):#for(i=pos-1;i>=0;i--){comp(,ordering[i]);}
+            pos-=1
+            if not self.compare(newfile, ordering[i]):
+                self.ordering.append(pos)
+                break
             else:
-                pos -= 1
-
-
-        fwrite()
-    def list_files(self):
-        #for(i=0; i<len; i++)
-        #  ret[i] = files[self.ordering[i]];
-        return [self.files[i] for i in self.ordering] #list comprensions are faster and take more ram
+                continue
+        fwrite() #clearer this way (than an alt r+ (append) fwrite) that self.files/ordering are the main reference
+    #def file_stream(self):
+    #    #for(i=0; i<len; i++)
+    #    #  ret[i] = files[self.ordering[i]];
+    #    return (self.files[i] for i in self.ordering)
     def close(self):
         #this should be called in between server instances (writes csv in order)
-        self.files = self.list_files()
+        #self.files = self.files_list()
+        self.files = [self.files[i] for i in self.ordering] #needs to be list comprehension for random-access, obviously.
+        #   (a generator would actually be the same speed due to the listexpression being an indexing operation,
+        #   so that encoded as a rule in a generator would be the same speed)
         fwrite()
 
 #usage:
@@ -81,7 +90,6 @@ def client_convert():
 @app.route('/')
 async def index(request):
     return 'Hello, world!'
-
 @app.post('/upload')
 async def upload(request):
     path = 'working/'+filename
