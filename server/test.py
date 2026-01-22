@@ -53,7 +53,7 @@ class Meta:
                 self.ordering.append(pos)
                 break
             pos-=1
-        fwrite() #clearer this way (than an alt r+ (append) fwrite) that self.files/ordering are the main reference
+        #fwrite() insert really doesnt need this. fwrite is when user "applies changes", having the buffer open (self.files/ordering) means changes to file dont need to be made.
     #def file_stream(self):
     #    #for(i=0; i<len; i++)
     #    #  ret[i] = files[self.ordering[i]];
