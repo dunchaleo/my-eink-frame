@@ -49,12 +49,10 @@ class Meta:
         #then comparison just needs to be reversed first (but how can you tell?)
         pos = len(files)+1
         for i in range(pos-1,-1,-1):#for(i=pos-1;i>=0;i--){comp(,ordering[i]);}
-            pos-=1
-            if not self.compare(newfile, ordering[i]):
+            if self.compare(newfile, ordering[i]):
                 self.ordering.append(pos)
                 break
-            else:
-                continue
+            pos-=1
         fwrite() #clearer this way (than an alt r+ (append) fwrite) that self.files/ordering are the main reference
     #def file_stream(self):
     #    #for(i=0; i<len; i++)
