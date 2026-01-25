@@ -1,1 +1,57 @@
-#+title: Mynotes
+*** misc
+    this just generates a csv for my own testing. practically, csvs in the program are always in the right order since theyre not written except on close() so the ordering/naming here is irrelevant.
+    #+BEGIN_SRC elisp
+    (let ((cur (current-buffer))
+          (tfmt "%s")
+          (i 0))
+      (with-current-buffer cur
+        (goto-char (point-max))
+        (while (< i (* 10 86400))
+          (if (not (eq i 0)) (insert "\n"))
+          (insert (format "filename%d.jpg," (- 10 (/ i 86400))))
+          (insert (number-to-string (- (string-to-number (format-time-string tfmt (current-time))) i)))
+          (setq i (+ i 86400)))))
+    #+END_SRC
+    /(M-x org-babel-execute-src-block)/
+*** py testing 
+    #+BEGIN_SRC python
+    #insertion test (loop from Meta.insert())
+    import temp/testtest
+    mymeta = testtest.Meta()
+    mymeta.mwrite()
+    mymeta.chsort(1,False)
+    ((((((newelt_data)))))) =  1768907347
+    for i in range(len(mymeta.files)-1,-1,-1): 
+      print(f'comparing {newelt_data} against (pos){i}: {mymeta.files[mymeta.ordering[i]][mymeta.sortby]}')
+      if(newelt_data > int(mymeta.files[mymeta.ordering[i]][mymeta.sortby])):
+        print(f'{newelt_data} should go after {i}')
+        break
+    #+END_SRC
+    #+BEGIN_SRC python
+    #suite test
+    def metatest():
+      mymeta = Meta()
+      mymeta.mwrite()
+      mymeta.chsort(1,False)
+      print('asc\n',list(mymeta.file_stream()))
+      mymeta.chsort(1,True)
+      print('dsc\n',list(mymeta.file_stream()))
+      mymeta.insert(['myfile.jpg','1768561747'])
+      print('insert img\n',list(mymeta.file_stream()))
+      mymeta.chsort(1,False)
+      print('chsort asc\n',list(mymeta.file_stream()))
+      mymeta.insert(['otherfile.jpg','1769080147'])
+      print('insert img\n',list(mymeta.file_stream()))
+    #+END_SRC
+*** testing output (csv generator)
+    filename10.jpg,1769252946
+    filename9.jpg,1769166546
+    filename8.jpg,1769080146
+    filename7.jpg,1768993746
+    filename6.jpg,1768907346
+    filename5.jpg,1768820946
+    filename4.jpg,1768734546
+    filename3.jpg,1768648146
+    filename2.jpg,1768561746
+    filename1.jpg,1768475346
+  

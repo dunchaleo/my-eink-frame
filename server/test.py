@@ -23,9 +23,11 @@ class Meta:
         #only do once on init
         with open('./files.csv', 'r') as f:
             reader = csv.reader(f)
+            i = 0
             for row in reader:
                 self.files.append(row)
                 self.ordering.append(i)
+                i+=1
     def fwrite(self):
         with open('./files.csv', 'w') as f: #w mode clears file first
             writer = csv.writer(f)
@@ -38,7 +40,7 @@ class Meta:
         #could this could be optimized a lot?
         #easy example: if just toggling desc/asc, reversal is faster than list.sort()
         #  (TODO look into ``reversed(list)'' rather than ``list.reverse''--still O(n) for file writing lol)
-        self.ordering.sort(reverse=desc, key=lambda i: files[i])
+        self.ordering.sort(reverse=desc, key=lambda i: self.files[i][sortby])
         #also a setter
         self.sortby=sortby
         self.desc=desc
@@ -47,17 +49,30 @@ class Meta:
         #by expected use case insertion sort is probably really good here,
         #unless user picked from their recents the wrong way,
         #then comparison just needs to be reversed first (but how can you tell?)
-        pos = len(files)+1
-        for i in range(pos-1,-1,-1):#for(i=pos-1;i>=0;i--){comp(,ordering[i]);}
-            if self.compare(newfile, ordering[i]):
-                self.ordering.append(pos)
+        #   we could say if pos >= len-3 (or len-[tolerance]), we had a "hard" insert.
+        #   more than 5 (or [also tolerance]?) hard inserts in a row means it might be worth ordering.reverse() and sortby=!sortby
+        newlen = len(self.files)+1
+        self.files.append(newfile)
+        pos = newlen-1
+        for i in range(pos-1,-1,-1):#for(i=pos-1;i>=0;i--,pos--){..comp(,ordering[i]);..}
+            if self.compare(newfile, self.ordering[i]):
                 break
             pos-=1
-        #fwrite() insert really doesnt need this. fwrite is when user "applies changes", having the buffer open (self.files/ordering) means changes to file dont need to be made.
-    #def file_stream(self):
-    #    #for(i=0; i<len; i++)
-    #    #  ret[i] = files[self.ordering[i]];
-    #    return (self.files[i] for i in self.ordering)
+        #insert real position into ordering after pos
+        self.ordering.append(0)
+        for i in range(newlen-1,pos+1,-1):
+            self.ordering[i] = self.ordering[i-1]
+        self.ordering[pos+1] = newlen - 1
+        #fwrite() #insert really doesnt need this. fwrite is when user "applies changes", having the buffer open (self.files/ordering) means changes to file dont need to be made.
+    def compare(self, new_elt, elt_idx):
+        new_data = new_elt[self.sortby]
+        elt_data = self.files[elt_idx][self.sortby]
+        if(self.desc):
+            return (int(new_data)<int(elt_data)) #im stupid
+        else:
+            return (int(new_data)>int(elt_data))
+    def file_stream(self): #for(i=0; i<len; i++){ret[i] = files[self.ordering[i]];}
+        return (self.files[i] for i in self.ordering)
     def close(self):
         #this should be called in between server instances (writes csv in order)
         #self.files = self.files_list()
@@ -65,9 +80,8 @@ class Meta:
         #   (a generator would actually be the same speed due to the listexpression being an indexing operation,
         #   so that encoded as a rule in a generator would be the same speed)
         fwrite()
-
+        return self.files #useful
 #usage:
-#meta.chsort(1,True)
 #meta.insert(convert(file))
 #(inserts file into place based on timestamp)
 
@@ -84,7 +98,6 @@ def client_convert():
 
 
 
-    
 @app.route('/')
 async def index(request):
     return 'Hello, world!'
