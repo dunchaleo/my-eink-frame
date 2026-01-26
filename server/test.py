@@ -5,10 +5,12 @@
 #(microdot also seems opinionated in favor of async)
 
 from microdot import Microdot, send_file, Request
+import os
 import subprocess
 import csv
 
 app = Microdot()
+Request.max_content_length = 1024*1024
 
 server_covnersion = True #convert files in browser or on device
 
@@ -55,14 +57,14 @@ class Meta:
         pos = newlen-2
         while not self.compare(newfile,self.ordering[pos]):
             pos-=1
-            #insert real position into ordering after pos
+        #insert real position into ordering after pos
         self.ordering.append(0)
         i = newlen-1
         while (i>pos+1):
             self.ordering[i] = self.ordering[i-1]
             i-=1
             self.ordering[pos+1] = newlen - 1
-            #ensure said real position is real
+        #ensure said real position is real
         self.files.append(newfile)
         #fwrite()
         # ^ insert really doesnt need this. fwrite is when user "applies changes"; having the buffer open (self.files/ordering) means changes to file dont need to be made.
@@ -89,30 +91,56 @@ class Meta:
 
 #usage:
 #meta.insert(convert(file))
-#(inserts file into place based on timestamp)
+#(inserts file into place based on timestamp or other data)
 
 #returns [path, metadata1, ..] (currently only metadata is timestamp)
 def convert(path):
     if server_conversion:
         subprocess.run('./converter/venv/bin/python', f'convert.py {path}')
     else:
-        lksjfasfj
-
-def client_convert():
+        print('todo: wasm/js can convert files in browser as user picks them for upload')
 
 
-
+#def client_convert():
 
 
 @app.route('/')
 async def index(request):
-    return 'Hello, world!'
+    return send_file('uploader.html')
 @app.post('/upload')
 async def upload(request):
+    filename = request.headers['Content-Disposition'].split(
+        'filename=')[1].strip('"')
+    size = int(request.headers['Content-Length'])
     path = 'working/'+filename
+    print(f'content_length: {request.content_length}')
+    print(path, size)
+
+    # write the file to the files directory in 1K chunks
     with open(path, 'wb') as f:
-    ...
+        while size > 0:
+            chunk = await request.stream.read(min(size, 1024))
+            f.write(chunk)
+            size -= len(chunk)
+
+    print('Successfully saved file: ' + filename)
+    return ''
+
     insert(convert(path)) #convert() needs to ret something with exif available for ins() to use
-@app.route('/clear')
+@app.route('/clearall')
+async def clearall(request):
+    path = 'working/'
+
+    extensions = [
+        '.jpeg', '.jpg', '.png', '.gif', '.svg', '.webp', '.bmp', '.jfif', '.heic',
+        '.JPEG', '.JPG', '.PNG', '.GIF', '.SVG', '.WEBP', '.BMP', '.JFIF', '.HEIC',
+    ]
+
+    for filename in os.listdir(path):
+        for extension in extensions:
+            if filename.endswith(extension):
+                os.remove(os.path.join(path, filename))
+    return ''
+
 
 app.run(port=4000, debug=True)

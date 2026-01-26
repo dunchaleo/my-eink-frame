@@ -23,7 +23,7 @@
     mymeta = testtest.Meta()
     mymeta.mwrite()
     mymeta.chsort(1,False)
-    ((((((newelt_data)))))) =  1768907347
+    newelt_data =  1768907347
     for i in range(len(mymeta.files)-1,-1,-1): 
       print(f'comparing {newelt_data} against (pos){i}: {mymeta.files[mymeta.ordering[i]][mymeta.sortby]}')
       if(newelt_data > int(mymeta.files[mymeta.ordering[i]][mymeta.sortby])):
