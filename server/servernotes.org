@@ -37,9 +37,13 @@ def metatest(namespace):
 #+BEGIN_SRC bash
 #upload 1 file
 curl -X POST "http://localhost:4000/upload" \
-    -F file=@/home/dunchaleo/Downloads/temp/filename2.jpg \
+    -T "/home/dunchaleo/Downloads/temp/filename2.jpg" \
+    -H "Content-Type:application/octet-stream" \
     -H "filename:filename2.jpg"
 #+END_SRC
+
+#+RESULTS:
+
 todo implement html5 multi file picker dialog. until then, testing multi file upload:
 /(shouldnt expect this to upload files in any particular order)/
 #+BEGIN_SRC elisp
@@ -54,7 +58,7 @@ todo implement html5 multi file picker dialog. until then, testing multi file up
           (let ((command
                  (concat
                   "curl -X POST \"http://localhost:4000/upload\""
-                  " -F file=@" file
+                  " -T " file
                   " -H \"filename:" (file-name-nondirectory file) "\"")))
             (shell-command command))))))
 #+END_SRC
