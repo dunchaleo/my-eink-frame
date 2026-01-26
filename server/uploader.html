@@ -13,22 +13,22 @@
     </form>
     <script>
       async function upload(ev) {
-        ev.preventDefault();
-        const file = document.getElementById('file').files[0];
-        if (!file) {
-          return;
-        }
-        await fetch('/upload', {
-          method: 'POST',
-          body: file,
-          headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Disposition': `attachment; filename="${file.name}"`,
+          ev.preventDefault();
+          const file = document.getElementById('file').files[0];
+          if (!file) {
+              return;
           }
-        }).then(res => {
-          console.log('Upload accepted');
-          window.location.href = '/';
-        });
+          await fetch('/upload', {
+              method: 'POST',
+              body: file,
+               headers: {
+                   'Content-Type': 'application/octet-stream',
+                   'Content-Disposition': `attachment; filename="${file.name}"`,
+                   'filename':file.name}
+          }).then(res => {
+              console.log('Upload accepted');
+              window.location.href = '/';
+          });
       }
       document.getElementById('form').addEventListener('submit', upload);
     </script>

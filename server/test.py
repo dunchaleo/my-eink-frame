@@ -109,8 +109,9 @@ async def index(request):
     return send_file('uploader.html')
 @app.post('/upload')
 async def upload(request):
-    filename = request.headers['Content-Disposition'].split(
-        'filename=')[1].strip('"')
+  #  filename = request.headers['Content-Disposition'].split(
+  #      'filename=')[1].strip('"')
+    filename = request.headers['filename']
     size = int(request.headers['Content-Length'])
     path = 'working/'+filename
     print(f'content_length: {request.content_length}')

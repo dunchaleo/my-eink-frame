@@ -17,35 +17,48 @@
     #+END_SRC
     /(M-x org-babel-execute-src-block)/
 *** py testing 
-    #+BEGIN_SRC python
-    #insertion test (loop from Meta.insert())
-    import temp/testtest
-    mymeta = testtest.Meta()
+#+BEGIN_SRC python
+#suite test
+def metatest(namespace):
+    mymeta = namespace.Meta()
     mymeta.mwrite()
     mymeta.chsort(1,False)
-    newelt_data =  1768907347
-    for i in range(len(mymeta.files)-1,-1,-1): 
-      print(f'comparing {newelt_data} against (pos){i}: {mymeta.files[mymeta.ordering[i]][mymeta.sortby]}')
-      if(newelt_data > int(mymeta.files[mymeta.ordering[i]][mymeta.sortby])):
-        print(f'{newelt_data} should go after {i}')
-        break
-    #+END_SRC
-    #+BEGIN_SRC python
-    #suite test
-    def metatest(namespace):
-      mymeta = namespace.Meta()
-      mymeta.mwrite()
-      mymeta.chsort(1,False)
-      print('asc\n',list(mymeta.file_stream()))
-      mymeta.chsort(1,True)
-      print('dsc\n',list(mymeta.file_stream()))
-      mymeta.insert(['myfile.jpg','1768686797'])
-      print('insert img\n',list(mymeta.file_stream()))
-      mymeta.chsort(1,False)
-      print('chsort asc\n',list(mymeta.file_stream()))
-      mymeta.insert(['otherfile.jpg','1769205103'])
-      print('insert img\n',list(mymeta.file_stream()))
-    #+END_SRC
+    print('asc\n',list(mymeta.file_stream()))
+    mymeta.chsort(1,True)
+    print('dsc\n',list(mymeta.file_stream()))
+    mymeta.insert(['myfile.jpg','1768686797'])
+    print('insert img\n',list(mymeta.file_stream()))
+    mymeta.chsort(1,False)
+    print('chsort asc\n',list(mymeta.file_stream()))
+    mymeta.insert(['otherfile.jpg','1769205103'])
+    print('insert img\n',list(mymeta.file_stream()))
+#+END_SRC
+*** test client
+#+BEGIN_SRC bash
+#upload 1 file
+curl -X POST "http://localhost:4000/upload" \
+    -F file=@/home/dunchaleo/Downloads/temp/filename2.jpg \
+    -H "filename:filename2.jpg"
+#+END_SRC
+todo implement html5 multi file picker dialog. until then, testing multi file upload:
+/(shouldnt expect this to upload files in any particular order)/
+#+BEGIN_SRC elisp
+;(testing multi upload until then)
+(let* ((path (expand-file-name "~/Downloads/temp/"))
+       (files (directory-files path))
+       (fullpaths (mapcar (lambda (f) (concat path f)) files))
+       (extensions (list ".jpg" ".png")))
+  (dolist (file fullpaths)
+    (dolist (ext extensions)
+      (if (s-ends-with? ext file)
+          (let ((command
+                 (concat
+                  "curl -X POST \"http://localhost:4000/upload\""
+                  " -F file=@" file
+                  " -H \"filename:" (file-name-nondirectory file) "\"")))
+            (shell-command command))))))
+#+END_SRC
+
 *** testing output (csv generator)
     filename10.jpg,1769377865
     filename9.jpg,1769291542
