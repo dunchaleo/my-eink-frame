@@ -6,30 +6,41 @@
     <meta charset="UTF-8">
   </head>
   <body>
-    <h1>Microdot Upload Example</h1>
+    <h1>welcome to the (per-album) upload module</h1>
+    <h3>this is where you queue up new files for a chosen album</h3>
+    <i><p>there is an html5 multi-file-selection form here.</p>
+      <p>user should be able to see input form data reflected back on this page in a list without having uploaded yet; can remove items individually first (no other edits).</p>
+    </i>
     <form id="form">
-      <input type="file" id="file" name="file" />
+      <input type="file" id="file" name="file" multiple/>
       <input type="submit" value="Upload" />
     </form>
     <script>
-      async function upload(ev) {
-          ev.preventDefault();
-          const file = document.getElementById('file').files[0];
-          if (!file) {
-              return;
-          }
-          await fetch('/upload', {
-              method: 'POST',
-              body: file,
-               headers: {
-                   'Content-Type': 'application/octet-stream',
-                   'Content-Disposition': `attachment; filename="${file.name}"`,
-                   'filename':file.name}
-          }).then(res => {
-              console.log('Upload accepted');
-              window.location.href = '/';
-          });
-      }
+    async function upload(ev) {
+        ev.preventDefault();
+        const promises = [];
+        const files = document.getElementById('file').files
+        for(let i=0; i<files.length; i++){
+            const file = files[i]
+            if (!file) {
+                return;
+            }
+            const head = {
+                'Content-Type': 'application/octet-stream',
+                'Content-Disposition': `attachment; filename="${file.name}"`,
+                'filename':file.name
+            }
+            const promise = fetch('/upload', {
+                method: 'POST',
+                body: file,
+                headers: head
+            })
+            promises.push(promise);
+        }
+        await Promise.all(promises);
+        console.log('all uploads done');
+        window.location.href='/';
+    }
       document.getElementById('form').addEventListener('submit', upload);
     </script>
   </body>
