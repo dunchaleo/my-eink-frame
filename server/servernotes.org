@@ -51,7 +51,7 @@ todo implement html5 multi file picker dialog. until then, testing multi file up
 (let* ((path (expand-file-name "~/Downloads/temp/"))
        (files (directory-files path))
        (fullpaths (mapcar (lambda (f) (concat path f)) files))
-       (extensions (list ".jpg" ".png")))
+       (extensions (list ".jpg" ".jpeg" ".png" ".webp")))
   (dolist (file fullpaths)
     (dolist (ext extensions)
       (if (s-ends-with? ext file)
@@ -62,6 +62,8 @@ todo implement html5 multi file picker dialog. until then, testing multi file up
                   " -H \"filename:" (file-name-nondirectory file) "\"")))
             (shell-command command))))))
 #+END_SRC
+
+#+RESULTS:
 
 *** testing output (csv generator)
     filename10.jpg,1769377865

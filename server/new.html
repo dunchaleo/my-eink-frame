@@ -1,0 +1,58 @@
+<html>
+<head>
+    <title>File Upload</title>
+</head>
+<body>
+    <form id="form">
+        <input type="file" id="file" name="file" multiple/>
+        <input type="submit" value="Upload"/>
+    </form>
+
+    <script>
+        async function upload(file) {
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const head = {
+ 'Content-Type': 'application/octet-stream',                                     
+ 'Content-Disposition': `attachment; filename="${file.name}"`,
+ 'filename':file.name
+};
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                    headers: head
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.statusText}`);
+                }
+                
+                console.log('Uploaded:', file.name);
+                return response;
+            } catch (error) {
+                console.error('Upload error:', error);
+            }
+        }
+        
+        function uploadwrapper(event) {
+            event.preventDefault();
+            
+            const files = document.getElementById('file').files;
+            
+            if (files.length === 0) {
+                alert('Please select files to upload');
+                return;
+            }
+            
+            // Start all uploads in parallel (no await)
+            for (let i = 0; i < files.length; i++) {
+                upload(files[i]);
+            }
+        }
+        
+        document.getElementById('form').addEventListener('submit', uploadwrapper);
+    </script>
+</body>
+</html>
