@@ -16,58 +16,41 @@
       <input type="submit" value="Upload"/>
     </form>
     <script>
-    // async function upload(ev, files) {
-//     ev.preventDefault();
-//     const promises = [];
-//     const files = document.getElementById('file').files
-//     for(let i=0; i<files.length; i++){
-//         const file = files[i]
-//         if (!file) {
-//             return;
-//         }
-//         const head = {
-//             'Content-Type': 'application/octet-stream',
-//             'Content-Disposition': `attachment; filename="${file.name}"`,
-//             'filename':file.name
-//         };
-//         const promise = fetch('/upload', {
-//             method: 'POST',
-//             body: file,
-//             headers: head
-//         })
-//         promises.push(promise);
-//     }
-//     await Promise.all(promises);
-//     console.log('all uploads done');
-//     window.location.href='/uploader';
-//}
-async function upload(file){
-    const head = {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${file.name}"`,
-        'filename':file.name
-    };
-    const promise = fetch('/upload', {
-        method: 'POST',
-        body: file,
-        headers: head
-    })
-    await promise;
-    console.log(file);
-}
-function uploadwrapper(){
+    async function upload(ev) {
+    ev.preventDefault();
+    //const promises = []; //[fn:0]
     const files = document.getElementById('file').files
     for(let i=0; i<files.length; i++){
-        const file = files[i];
+        const file = files[i]
         if (!file) {
             return;
         }
-        console.log(file)
-        upload(file);
+        const head = {
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${file.name}"`,
+            'filename':file.name
+        };
+        const promise = fetch('/upload', {
+            method: 'POST',
+            body: file,
+            headers: head
+        })
+        //promises.push(promise); //[fn:0]
+        await promise;
     }
-}
+    //await Promise.all(promises); //[fn:0]
+    console.log('all uploads done');
+    window.location.href='/uploader';
+    }
 
-document.getElementById('form').addEventListener('submit', upload);
+
+    document.getElementById('form').addEventListener('submit', upload);
+
+    /*
+    [fn:0] uncomment for concurrent uploads. Promise.all will still make
+    upload() not finish until responses have been recieved for all /upload
+    requests.
+    */
     </script>
   </body>
 </html>

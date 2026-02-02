@@ -3,14 +3,18 @@
     <title>File Upload</title>
 </head>
 <body>
+  other version of concurrent uploads. not using Promise.all, so not only are
+  uploads parallel, but upload() returns quickly, doesnt wait  until all
+  responses have been recieved for each POST.
+  (we DON'T want this though, we specifically want uploads to finish in order
+  of how user uploaded them in the file picker dialog)
     <form id="form">
         <input type="file" id="file" name="file" multiple/>
         <input type="submit" value="Upload"/>
     </form>
-
     <script>
         async function upload(file) {
-            try {
+            try { //llm wanted the try catches in here. what i was doing was bugged so here they stay
                 const formData = new FormData();
                 formData.append('file', file);
 

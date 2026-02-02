@@ -5,6 +5,7 @@
 #(microdot also seems opinionated in favor of async)
 
 from microdot import Microdot, send_file, Request
+import asyncio
 import os
 import subprocess
 import csv
@@ -31,7 +32,9 @@ def convert(path):
 
 @app.route('/uploader')
 async def index(request):
-    return send_file('new.html')
+    global testctr
+    testctr = 0
+    return send_file('uploader.html')
 @app.post('/upload')
 async def upload(request):
   #  filename = request.headers['Content-Disposition'].split(
@@ -39,33 +42,25 @@ async def upload(request):
     filename = request.headers['filename']
     size = int(request.headers['Content-Length'])
     path = 'working/'+filename
-    print(f'content_length: {request.content_length}')
     print(path, size)
 
     # write the file to the files directory in 1K chunks
     with open(path, 'wb') as f:
-        while size > 0:
-            chunk = await request.stream.read(min(size, 1024))
+        remaining = size
+        while remaining > 0:
+            chunk = await request.stream.read(min(remaining, 1024))
             f.write(chunk)
-            size -= len(chunk)
-    print('Successfully saved file: ' + filename)
+            remaining -= len(chunk)
+    print(f'{filename} uploaded and written')
+
+    asyncio.create_task(testconvert(filename,size))
     return ''
-#@app.post('/stage')
-#async def stage(request):
-#    asyncio.create_task()
-# @app.route('/rmforce')
-# async def rmforce(request):
-#     path = 'working/'
-#     extensions = [
-#         '.jpeg', '.jpg', '.png', '.gif', '.svg', '.webp', '.bmp', '.jfif', '.heic',
-#         '.JPEG', '.JPG', '.PNG', '.GIF', '.SVG', '.WEBP', '.BMP', '.JFIF', '.HEIC',
-#     ]
-#     for filename in os.listdir(path):
-#         for extension in extensions:
-#             if filename.endswith(extension):
-#                 os.remove(os.path.join(path, filename))
-#     return ''
-
-
+async def testconvert(filename, size):
+    # the point of this test is to show that if large filesize => long conversion time, the conversions will finish in the order of filesize.
+    # it's a bad test because task A could have longer run time than task B, but A returns first because it was fired first
+    time = (size/239024)*10 #normalized size (max is 239024) to 10
+    print(f'\t\t\t\t\t\t\t\033[92m async task started--{time}\033[0m')
+    await asyncio.sleep(time)
+    print(f'\t\t\t\t\t\t\t\033[91m async task returned: converted {filename} of size {size}\033[0m')
 
 app.run(port=4000, debug=True)
