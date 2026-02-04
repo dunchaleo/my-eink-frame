@@ -12,12 +12,6 @@ import csv
 
 import metadata
 
-app = Microdot()
-meta = metadata.Meta()
-
-Request.max_content_length = 1024*1024
-
-server_covnersion = True #convert files in browser or on device
 
 #returns [path, metadata1, ..] (currently only metadata is timestamp)
 def convert(path):
@@ -32,8 +26,6 @@ def convert(path):
 
 @app.route('/uploader')
 async def index(request):
-    global testctr
-    testctr = 0
     return send_file('uploader.html')
 @app.post('/upload')
 async def upload(request):
@@ -53,7 +45,11 @@ async def upload(request):
             remaining -= len(chunk)
     print(f'{filename} uploaded and written')
 
-    asyncio.create_task(testconvert(filename,size))
+    asyncio.create_task(convert_and_insert(filename,size))
+
+#WIP
+
+    meta.insert(future)
     return ''
 async def testconvert(filename, size):
     # the point of this test is to show that if large filesize => long conversion time, the conversions will finish in the order of filesize.
@@ -62,5 +58,26 @@ async def testconvert(filename, size):
     print(f'\t\t\t\t\t\t\t\033[92m async task started--{time}\033[0m')
     await asyncio.sleep(time)
     print(f'\t\t\t\t\t\t\t\033[91m async task returned: converted {filename} of size {size}\033[0m')
+async def convert_and_insert(filename, size):
+    time = (size/239024)*10 #normalized size (max is 239024) to 10
+    print(f'\t\t\t\t\t\t\t\033[92m async task started (debug: {time})\033[0m')
+    converter_handle = await asyncio.sleep(time) #await convert(filename) #conversion time
+    insertion_queue.put(converter_handle) #declare promise and enque it in the global insertion queue
+
+    print(f'\t\t\t\t\t\t\t\033[91m async task returned: converted {filename} of size {size}\033[0m')
+async def consume_staged_insertions():
+    while True:
+        nextfile = insertion_queue.get()
+        if(nextfile):
+
+
+
+app = Microdot()
+
+meta = metadata.Meta()
+insertion_queue = asyncio.Queue()
+
+Request.max_content_length = 1024*1024
+server_covnersion = True #convert files in browser or on device
 
 app.run(port=4000, debug=True)

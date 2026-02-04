@@ -16,7 +16,8 @@
           (setq i (+ i 86400)))))
     #+END_SRC
     /(M-x org-babel-execute-src-block)/
-*** py testing 
+*** py testing
+**** ~class Meta~ test suite
 #+BEGIN_SRC python
 #suite test
 def metatest(namespace):
@@ -33,6 +34,43 @@ def metatest(namespace):
     mymeta.insert(['otherfile.jpg','1769205103'])
     print('insert img\n',list(mymeta.file_stream()))
 #+END_SRC
+**** backend simulation
+/uploading/converting/inserting into Meta obj/
+(~_queue = asyncio.Queue()~, set i&lim, then ~asyncio.run(main())~):
+#+BEGIN_SRC python
+async def uploader(): #like a bunch of upload requests (lim)
+    global i
+    global lim
+    while(i<lim):
+        filesize = randrange(1,6) #note: helpful for understanding: test instant uploads too
+        await asyncio.sleep(1+filesize) #uploading takes longer than converting
+        print(f'upload complete fsize {filesize}')
+        handle = asyncio.create_task(processor(filesize)) #file processing/converter task
+        await _queue.put(handle) #push task immediately upon writing upload to fs
+        i+=1
+async def consumer(): #from consumer/producer pattern
+    while True:
+        nexttask = await _queue.get()
+        exif = await nexttask
+        print(f'detected task resolution')
+        #insert(exif)
+#        _queue.task_done() #necessary? you can do this on non-task items
+async def processor(size):
+    await asyncio.sleep(size)
+    exif = randrange(50,100) #converter.py can return exif data
+    print(f'processing complete for a file of size {size}: \t{exif}')
+    return exif
+#def insert(exif): #Meta.insert()
+#    print(f'inserting file via exif key {exif}')
+async def main():
+    asyncio.create_task(uploader())
+    asyncio.create_task(consumer())
+    while True:
+        await asyncio.sleep(1)
+
+#+END_SRC
+this is a way to enforce doing insertions in the order that files are uploaded. it would have been more straightforward to ~create_task~ upon upload, and have that await exif/conversion before ~Meta.insert()~ call. however, that would mean insertion isn't done in upload-order, but upload-plus-[exif extraction/conversion]-order.
+the ~consumer~ task needs to be running with microdot app. (? or queue lifetime?)
 *** test client
 #+BEGIN_SRC bash
 #upload 1 file
@@ -44,8 +82,7 @@ curl -X POST "http://localhost:4000/upload" \
 
 #+RESULTS:
 
-todo implement html5 multi file picker dialog. until then, testing multi file upload:
-/(shouldnt expect this to upload files in any particular order)/
+testing multi file upload /(shouldnt expect this to upload files in any particular order)/. this works like html5 multi file picker dialog and ~await fetch('/upload', {})~ for file in files form, i.e. server response is recieved before uploading next file.
 #+BEGIN_SRC elisp
 ;(testing multi upload until then)
 (let* ((path (expand-file-name "~/Downloads/temp/"))
@@ -64,7 +101,6 @@ todo implement html5 multi file picker dialog. until then, testing multi file up
 #+END_SRC
 
 #+RESULTS:
-
 *** testing output (csv generator)
     filename10.jpg,1769377865
     filename9.jpg,1769291542

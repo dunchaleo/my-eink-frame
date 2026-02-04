@@ -23,10 +23,12 @@ class Meta:
         self.files = []
         self.ordering = []
     def chsort(self, sortby, desc):
-        #could this could be optimized a lot?
-        #easy example: if just toggling desc/asc, reversal is faster than list.sort()
-        #  (TODO look into ``reversed(list)'' rather than ``list.reverse''--still O(n) for file writing lol)
-        self.ordering.sort(reverse=desc, key=lambda i: self.files[i][sortby])
+        #could this still be optimized a lot?
+        #if just toggling desc/asc, reversal is faster than list.sort()
+        if(self.sortby == sortby and self.desc == (not desc)):
+            self.files.reverse()
+        else:
+            self.ordering.sort(reverse=desc, key=lambda i: self.files[i][sortby])
         #also a setter
         self.sortby=sortby
         self.desc=desc
