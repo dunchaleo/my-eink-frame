@@ -66,7 +66,7 @@ async def main():
     asyncio.create_task(uploader())
     asyncio.create_task(consumer())
     while True:
-        await asyncio.sleep(1)
+        await asyncio.sleep(1) #non blocking
 
 #+END_SRC
 this is a way to enforce doing insertions in the order that files are uploaded. it would have been more straightforward to ~create_task~ upon upload, and have that await exif/conversion before ~Meta.insert()~ call. however, that would mean insertion isn't done in upload-order, but upload-plus-[exif extraction/conversion]-order.
