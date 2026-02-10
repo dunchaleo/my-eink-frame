@@ -1,10 +1,11 @@
 class Meta:
+    #Meta describes the cycling order and keeps intermediary/working data in mem before writing new stae to file, firstly initializing state by reading file.
     #on instantiation, we expect files.csv to be in the right order.
     def __init__(self):
         self.files = [] #row in files.csv has ``filename,timestamp'' (+ more cols?), see convert()
         self.ordering = [] #array of indexes--this is what actually gets sorted in mem! TODO can this be made a stream/generator?
         self.sortby = 1 #default sorting is timestamp,
-        self.desc = False# (ascending)
+        self.desc = False #ascending (remember this isnt a rule for the order, it's a descriptor and rule for insertion comps)
     def mwrite(self):
         #only do once on init
         with open('./files.csv', 'r') as f:
@@ -22,7 +23,7 @@ class Meta:
     def mfree(self):
         self.files = []
         self.ordering = []
-    def chsort(self, sortby, desc):
+    def chsort(self, sortby:int, desc:bool):
         #could this still be optimized a lot?
         #if just toggling desc/asc, reversal is faster than list.sort()
         if(self.sortby == sortby and self.desc == (not desc)):
@@ -32,7 +33,7 @@ class Meta:
         #also a setter
         self.sortby=sortby
         self.desc=desc
-    def insert(self, newfile): #newfile looks just like a row of files.csv
+    def insert(self, file:str): #file is not just filename, it looks just like a row of files.csv
         #see comment in ./converter/convert.py,
         #by expected use case insertion sort is probably really good here,
         #unless user picked from their recents the wrong way,
@@ -41,17 +42,17 @@ class Meta:
         #   more than 5 (or [also tolerance]?) hard inserts in a row means it might be worth ordering.reverse() and sortby=!sortby
         newlen = len(self.files)+1
         pos = newlen-2
-        while not self.compare(newfile,self.ordering[pos]):
+        while not self.compare(file,self.ordering[pos]):
             pos-=1
-            #insert real position into ordering after pos
+        #insert real position into ordering after pos
         self.ordering.append(0)
         i = newlen-1
         while (i>pos+1):
             self.ordering[i] = self.ordering[i-1]
             i-=1
             self.ordering[pos+1] = newlen - 1
-            #ensure said real position is real
-        self.files.append(newfile)
+        #ensure said real position is real
+        self.files.append(file)
         #fwrite()
         # ^ insert really doesnt need this. fwrite is when user "applies changes"; having the buffer open (self.files/ordering) means changes to file dont need to be made.
     def compare(self, new_elt, elt_idx):
@@ -74,3 +75,14 @@ class Meta:
         #   so that encoded as a rule in a generator would be the same speed)
         fwrite()
         return self.files #useful
+
+class Visuals:
+    #not in Meta class because it's moreso actual image mutation rules than metadata rules.
+    #we cant just keep "working data" in mem here like Meta.files/ordering. if these settings are changed, all files need to be re-converted.
+    #   ("apply/push changes" button??)
+    def __init__(self):
+        self.orientation = 'landscape' # | 'portrait'
+        self.mode = 'fit' # | 'fill' | 'stretch'
+        self.background = 'dark' # | 'light'
+    def get_args(self):
+        return [self.orientation, self.mode, self.background]

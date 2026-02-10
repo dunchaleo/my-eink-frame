@@ -56,6 +56,7 @@ async def consumer(): #from consumer/producer pattern
         #insert(exif)
 #        _queue.task_done() #necessary? you can do this on non-task items
 async def processor(size):
+    #NOTE PIL is blocking!! what to do?
     await asyncio.sleep(size)
     exif = randrange(50,100) #converter.py can return exif data
     print(f'processing complete for a file of size {size}: \t{exif}')
@@ -66,11 +67,12 @@ async def main():
     asyncio.create_task(uploader())
     asyncio.create_task(consumer())
     while True:
-        await asyncio.sleep(1) #non blocking
+        await asyncio.sleep(1)
 
 #+END_SRC
-this is a way to enforce doing insertions in the order that files are uploaded. it would have been more straightforward to ~create_task~ upon upload, and have that await exif/conversion before ~Meta.insert()~ call. however, that would mean insertion isn't done in upload-order, but upload-plus-[exif extraction/conversion]-order.
-the ~consumer~ task needs to be running with microdot app. (? or queue lifetime?)
+- this is a way to enforce doing insertions in the order that files are uploaded. it would have been more straightforward to ~create_task~ upon upload, and have that await exif/conversion before ~Meta.insert()~ call. however, that would mean insertion isn't done in upload-order, but upload-plus-[exif extraction/conversion]-order. the ~consumer~ task needs to be running with microdot app. (? or queue lifetime?)
+- PIL is not async! processor (converter) has to be on another thread to use the code the same way. or, it could just block (consequences?).
+
 *** test client
 #+BEGIN_SRC bash
 #upload 1 file
