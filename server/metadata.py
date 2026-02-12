@@ -1,10 +1,12 @@
+import csv
+
 class Meta:
     #Meta describes the cycling order and keeps intermediary/working data in mem before writing new stae to file, firstly initializing state by reading file.
     #on instantiation, we expect files.csv to be in the right order.
     def __init__(self):
-        self.files = [] #row in files.csv has ``filename,timestamp'' (+ more cols?), see convert()
+        self.files = [] #row in files.csv has ``SFN,longfilename,timestamp'' (+ more cols?) (s/l for fat32)
         self.ordering = [] #array of indexes--this is what actually gets sorted in mem! TODO can this be made a stream/generator?
-        self.sortby = 1 #default sorting is timestamp,
+        self.sortby = 2 #default sorting is timestamp
         self.desc = False #ascending (remember this isnt a rule for the order, it's a descriptor and rule for insertion comps)
     def mwrite(self):
         #only do once on init
@@ -34,7 +36,6 @@ class Meta:
         self.sortby=sortby
         self.desc=desc
     def insert(self, file:str): #file is not just filename, it looks just like a row of files.csv
-        #see comment in ./converter/convert.py,
         #by expected use case insertion sort is probably really good here,
         #unless user picked from their recents the wrong way,
         #then comparison just needs to be reversed first (but how can you tell?)

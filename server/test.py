@@ -9,14 +9,23 @@ import asyncio
 import os
 import sys
 import subprocess
-import csv
+import struct
 
 import metadata
+
+###globals
+
+app = Microdot()
+
+meta = metadata.Meta()
+vargs = metadata.Visuals().get_args() #to be improved
+insertion_q = asyncio.Queue()
 
 # if server_conversion:
 # else:
 #    print('todo: wasm/js can convert files in browser as user picks them for upload')
 
+###routes
 
 @app.route('/uploader')
 async def index(request):
@@ -29,7 +38,7 @@ async def upload(request):
   #      'filename=')[1].strip('"')
     filename:str = request.headers['filename']
     size = int(request.headers['Content-Length'])
-    path = 'working/'+filename
+    path = 'working/'+filename #TODO convert to SFN before writing(?)
     print(path, size)
 
     # write the file to the files directory in 1K chunks
@@ -47,6 +56,8 @@ async def upload(request):
 
     return ''
 
+###other coroutines
+
 async def insertion_listener(): #or "insertion consumer", from consumer/producer pattern
    while True:
        #exif = await (await insertion_q.get())
@@ -56,24 +67,16 @@ async def insertion_listener(): #or "insertion consumer", from consumer/producer
 async def process_image(filename):
     #(dont just get exif--let this task totally finish conversion).
     #let OS handle threads by making a subprocess. blocking code can be awaited. see comment in converter.py
-    subcall = [sys.executable, 'converter.py'].append(vargs)
+    subcall = [sys.executable, 'converter.py', filename] + vargs
     subproc = await asyncio.create_subprocess_exec(
         *subcall, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout,stderr = await subproc.communicate()
-    return stdout.decode() # in converter.py, metadata needs to be printed
-# app.run(port=4000, debug=True)
+    #we'll get a byte obj (can it be streamed/chunked?) from converter.py, just needs to be serialized to arr. DO NOT want to be text-parsing.
+    return struct.unpack('12s255sI',stdout)
 async def start():
     insertion_listener_handle = asyncio.create_task(insertion_listener())
-    server = asyncio.create_task(app.start_server(port=4000, debug=true))
+    server = asyncio.create_task(app.start_server(port=4000, debug=True))
     await asyncio.gather(server,insertion_listener_handle)
-
-###globals
-
-app = Microdot()
-
-meta = metadata.Meta()
-vargs = metadata.Visuals().get_args() #to be improved
-insertion_q = asyncio.Queue()
 
 Request.max_content_length = 1024*1024
 server_covnersion = True #convert files in browser or on device

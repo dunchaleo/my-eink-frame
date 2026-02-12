@@ -11,6 +11,12 @@ from pillow_heif import register_heif_opener
 from datetime import datetime
 import piexif
 
+#everyting in this file needs to be silent since it's subprocessed. debug logging has to be to a file.
+
+def log(str):
+    with open('.log','w') as log:
+        log.write(str)
+
 # (unique deps: piexif, datetime, ExifTags)
 # tries to copy exif via piexif first, but failing that (e.g. if png or tiff?) it still specifically extracts the datetime and builds its own exif dict.
 def get_exif_bytes(path, verbose:bool = False):
@@ -38,7 +44,7 @@ def get_exif_bytes(path, verbose:bool = False):
         # No EXIF data exists, use current datetime
         date = datetime.now()
         if verbose:
-            print(f'No EXIF data found for {image.filename}, creating dummy EXIF data')
+            log(f'No EXIF data found for {image.filename}, creating dummy EXIF data')
     # Update exif data with orientation and datetime
     exif_dict["0th"][piexif.ImageIFD.DateTime] = date.strftime("%Y:%m:%d %H:%M:%S")
     exif_dict["0th"][piexif.ImageIFD.Orientation] = 1
@@ -57,6 +63,18 @@ def exif_to_csv(path):
    return string(get_exif_bytes)
 
 import time
-print('heres some blocking in the body')
+log('heres some blocking in the body')
 time.sleep(5)
-print('this is the end')
+log('this is the end')
+
+
+#simulate an exif output ideally
+import sys
+import struct
+#stdout 12-byte chunk for SFN, 255 for long, and unsigned int for timestamp
+#(is SFN even a good idea?)
+#out = struct.pack('12s255sI', b'SFN.JPG', b'longfilename.jpg',1770863679)
+#doing this in C would mean stdout a char* and just know how to delimit it on the other side. so it's basically the same here:
+out = struct.pack('12s255sI', b'SFN.JPG', b'longfilename.jpg',1770863679)
+#meaning we arent unpacking the struct itself, but the stdout "stream"
+sys.stdout.buffer.write(out)
