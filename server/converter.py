@@ -1,8 +1,12 @@
-#if we cant do server conversions, it means we're on a MCU that cant use pillow/advanced image library. since an MCU doesnt have an OS, we couldnt be calling a subprocess. so imo the converter is free to be a subprocess. it is also free to use thread pool executor. neither is available on micropython.
-
-
+### credits
 # conversion code modified from waveshare website
 # get_exif_bytes() modified from saschiwy/heic_converter
+
+
+###
+#if we cant do server conversions, it means we're on a MCU that cant use pillow/advanced image library. since an MCU doesnt have an OS, we couldnt be calling a subprocess. so imo the converter is free to be a subprocess. it is also free to use thread pool executor. neither is available on micropython.
+
+#everyting in this file needs to be silent since it's subprocessed. debug logging has to be to a file.
 
 import sys
 import os.path
@@ -10,12 +14,13 @@ from PIL import Image, ImagePalette, ImageOps, ExifTags
 from pillow_heif import register_heif_opener
 from datetime import datetime
 import piexif
+import contextlb #suppress stdout
 
-#everyting in this file needs to be silent since it's subprocessed. debug logging has to be to a file.
+#kwargs: filename, orientation, mode, background
 
 def log(str):
-    with open('.log','w') as log:
-        log.write(str)
+    with open('.log','a+') as log:
+        log.write(f'converter.py\t{str}')
 
 # (unique deps: piexif, datetime, ExifTags)
 # tries to copy exif via piexif first, but failing that (e.g. if png or tiff?) it still specifically extracts the datetime and builds its own exif dict.
@@ -62,19 +67,15 @@ def get_exif_bytes(path, verbose:bool = False):
 def exif_to_csv(path):
    return string(get_exif_bytes)
 
-import time
-log('heres some blocking in the body')
-time.sleep(5)
-log('this is the end')
-
 
 #simulate an exif output ideally
 import sys
 import struct
-#stdout 12-byte chunk for SFN, 255 for long, and unsigned int for timestamp
-#(is SFN even a good idea?)
-#out = struct.pack('12s255sI', b'SFN.JPG', b'longfilename.jpg',1770863679)
-#doing this in C would mean stdout a char* and just know how to delimit it on the other side. so it's basically the same here:
-out = struct.pack('12s255sI', b'SFN.JPG', b'longfilename.jpg',1770863679)
-#meaning we arent unpacking the struct itself, but the stdout "stream"
-sys.stdout.buffer.write(out)
+import time
+log('heres some blocking in the body\n')
+#stdout 255 byte chunk for filename, and unsigned int for timestamp. + more ?
+#doing this in C would mean stdout a char* and just know how to delimit it on the other side. so it's similar here:
+out_bytes = struct.pack('@255sI', b'filename.jpg',1770863679)
+#sum(range(30000000*len(argv[0])))
+log('this is the end of the blocking\n')
+sys.stdout.buffer.write(out_bytes)

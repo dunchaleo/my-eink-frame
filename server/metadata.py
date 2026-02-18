@@ -1,12 +1,13 @@
+from PIL.GifImagePlugin import _get_background
 import csv
 
 class Meta:
     #Meta describes the cycling order and keeps intermediary/working data in mem before writing new stae to file, firstly initializing state by reading file.
     #on instantiation, we expect files.csv to be in the right order.
     def __init__(self):
-        self.files = [] #row in files.csv has ``SFN,longfilename,timestamp'' (+ more cols?) (s/l for fat32)
+        self.files = [] #row in files.csv has ``filename,timestamp'' (+ more cols?)
         self.ordering = [] #array of indexes--this is what actually gets sorted in mem! TODO can this be made a stream/generator?
-        self.sortby = 2 #default sorting is timestamp
+        self.sortby = 1 #default sorting is timestamp
         self.desc = False #ascending (remember this isnt a rule for the order, it's a descriptor and rule for insertion comps)
     def mwrite(self):
         #only do once on init
@@ -35,7 +36,8 @@ class Meta:
         #also a setter
         self.sortby=sortby
         self.desc=desc
-    def insert(self, file:str): #file is not just filename, it looks just like a row of files.csv
+    def insert(self, file:tuple): #file is not just filename, but is like serialized row of files.csv
+        #NOTE i had expected it would be easier to have to have param file:str where it's a row of the csv, but unpacking stdout from the converter subprocess seems to be smoother so we have an array metadata param here
         #by expected use case insertion sort is probably really good here,
         #unless user picked from their recents the wrong way,
         #then comparison just needs to be reversed first (but how can you tell?)
@@ -56,6 +58,7 @@ class Meta:
         self.files.append(file)
         #fwrite()
         # ^ insert really doesnt need this. fwrite is when user "applies changes"; having the buffer open (self.files/ordering) means changes to file dont need to be made.
+        print(f'inserted {file}')
     def compare(self, new_elt, elt_idx):
         new_data = new_elt[self.sortby]
         elt_data = self.files[elt_idx][self.sortby]
@@ -74,7 +77,7 @@ class Meta:
         self.files = [self.files[i] for i in self.ordering] #needs to be list comprehension for random-access, obviously.
         #   (a generator would actually be the same speed due to the listexpression being an indexing operation,
         #   so that encoded as a rule in a generator would be the same speed)
-        fwrite()
+        self.fwrite()
         return self.files #useful
 
 class Visuals:
@@ -86,4 +89,5 @@ class Visuals:
         self.mode = 'fit' # | 'fill' | 'stretch'
         self.background = 'dark' # | 'light'
     def get_args(self):
+        #return dict(orientaiton=self.orientaiton, mode=self.mode, background=self.background)
         return [self.orientation, self.mode, self.background]

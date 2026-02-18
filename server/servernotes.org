@@ -1,23 +1,27 @@
 *** misc
-    this just generates a csv for my own testing. practically, csvs in the program are always in the right order since theyre not written except on close() so the ordering/naming here is irrelevant.
-    #+BEGIN_SRC elisp
-    (let ((cur (current-buffer))
-        (tfmt "%s")
-          (i 0))
-      (with-current-buffer cur
-        (goto-char (point-max))
-        (while (< i (* 10 86400))
-          (if (not (eq i 0)) (insert "\n"))
-          (insert (format "filename%d.jpg," (- 10 (/ i 86400))))
-          (insert (number-to-string
-                   (- (string-to-number (format-time-string tfmt (current-time)))
-                      (let ((randoffset (random 100)) (sign (> (random 2) 0)))
-                        (if sign (+ i randoffset) (- i randoffset)))))) ;add some variation
-          (setq i (+ i 86400)))))
-    #+END_SRC
-    /(M-x org-babel-execute-src-block)/
+
+this just generates a csv for my own testing. practically, csvs in the program are always in the right order since theyre not written except on close() so the ordering/naming here is irrelevant.
+
+#+BEGIN_SRC elisp
+(let ((cur (current-buffer))
+      (tfmt "%s")
+      (i 0))
+  (with-current-buffer cur
+    (goto-char (point-max))
+    (while (< i (* 10 86400))
+      (if (not (eq i 0)) (insert "\n"))
+      (insert (format "filename%d.jpg," (- 10 (/ i 86400))))
+      (insert (number-to-string
+               (- (string-to-number (format-time-string tfmt (current-time)))
+                  (let ((randoffset (random 100)) (sign (> (random 2) 0)))
+                    (if sign (+ i randoffset) (- i randoffset)))))) ;add some variation
+      (setq i (+ i 86400)))))
+#+END_SRC
+/(M-x org-babel-execute-src-block)/
+
 *** py testing
 **** ~class Meta~ test suite
+
 #+BEGIN_SRC python
 #suite test
 def metatest(namespace):
@@ -34,44 +38,102 @@ def metatest(namespace):
     mymeta.insert(['otherfile.jpg','1769205103'])
     print('insert img\n',list(mymeta.file_stream()))
 #+END_SRC
+
 **** backend simulation
-/uploading/converting/inserting into Meta obj/
-(~_queue = asyncio.Queue()~, set i&lim, then ~asyncio.run(main())~):
+
+/uploading/converting/inserting into Meta obj/ - naive: ~create_task()~ upon upload, awaits exif/conversion before ~Meta.insert()~ call. however, that would mean insertion isn't done in upload-order, but upload-plus-/[exif extraction/conversion]/-order. need a way to enforce doing insertions in the order that files are uploaded.
+
+two methods with asyncio queues in a consumer/producer like pattern. both examples: premade (file-) ~sizes~ list instead of producer, completely ignore upload time. (~process()~ -> conversion/exif)
 #+BEGIN_SRC python
-async def uploader(): #like a bunch of upload requests (lim)
-    global i
-    global lim
-    while(i<lim):
-        filesize = randrange(1,6) #note: helpful for understanding: test instant uploads too
+from concurrent.futures import ProcessPoolExecutor
+import asyncio
+# ...
+executor = ProcessPoolExecutor()
+asyncio.run(main())
+#+END_SRC
+1. conversion task is scheduled upon upload, consumer/listener only awaits it
+   #+BEGIN_SRC python
+async def process(size):
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(executor,sum,range(50000000*size))
+    print(f'processing complete for task of order {size}')
+    return size
+async def consumer():
+    while True:
+        next_task = await tasks.get()
+        res = await next_task
+        print(f'(resolved task of order {res})')
+async def main():
+    for x in sizes:
+        #schedule on upload
+        await tasks.put(asyncio.create_task(process(x)))
+    asyncio.create_task(consumer())
+    while True:
+        await asyncio.sleep(1)
+sizes = [5,1,6,2,3]
+tasks = asyncio.Queue()
+   #+END_SRC
+2. listener/consumer schedules+awaits the conversion task
+   #+BEGIN_SRC python
+async def process(size):
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(executor,sum,range(50000000 * size))
+    print(f'processing complete for task of order {size}')
+    return size
+async def consumer():
+    while True:
+        next_task_size = await sizes.get()
+        res = await process(next_task_size)
+        print(f'(scheduled and resolved task)')
+async def main():
+    for x in sizes_l:
+        await sizes.put(x)
+    asyncio.create_task(consumer())
+    while True:
+        await asyncio.sleep(1)
+sizes_l = [5,1,6,2,3]
+sizes = asyncio.Queue()
+   #+END_SRC
+
+can't use time.sleep or asyncio.sleep for testing! changing ~sum~ to ~time.sleep(size)~ in the executor makes total processing time take only as long as longest process call (2 also takes much longer than 1). that's not accurate to what PIL does. the difference should be only in what conversions finish first.\\PIL is not async. subprocess seemed natural.
+
+fleshed out example taking the first approach:
+#+BEGIN_SRC python
+_queue = asyncio.Queue()
+executor = ProcessPoolExecutor()
+filesizes = [5, 1, 6, 2, 3]
+filen = len(filesizes)
+async def uploader(): #like a bunch of upload requests
+    i = 0
+    while(i<filen):
+        filesize = filesizes[i]
         await asyncio.sleep(1+filesize) #uploading takes longer than converting
         print(f'upload complete fsize {filesize}')
-        handle = asyncio.create_task(processor(filesize)) #file processing/converter task
-        await _queue.put(handle) #push task immediately upon writing upload to fs
+        #sched processing/converter task and push it immediately upon writing upload to fs
+        handle = asyncio.create_task(processor(filesize))
+        await _queue.put(handle)
         i+=1
-async def consumer(): #from consumer/producer pattern
+async def consumer(): #insertion listener
     while True:
         nexttask = await _queue.get()
         exif = await nexttask
-        print(f'detected task resolution')
-        #insert(exif)
-#        _queue.task_done() #necessary? you can do this on non-task items
+        print(f'\tdetected resolved task')
+        insert(exif)
 async def processor(size):
-    #NOTE PIL is blocking!! make thread or subprocess to await.
-    await asyncio.sleep(size)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(executor,sum,range(50000000*size))
     exif = randrange(50,100) #converter.py can return exif data
     print(f'processing complete for a file of size {size}: \t{exif}')
     return exif
-#def insert(exif): #Meta.insert()
-#    print(f'inserting file via exif key {exif}')
+def insert(exif): #Meta.insert()
+    print(f'\tinserting file via exif key {exif}')
 async def main():
     asyncio.create_task(uploader())
     asyncio.create_task(consumer())
     while True:
         await asyncio.sleep(1)
-
 #+END_SRC
-- this is a way to enforce doing insertions in the order that files are uploaded. it would have been more straightforward to ~create_task~ upon upload, and have that await exif/conversion before ~Meta.insert()~ call. however, that would mean insertion isn't done in upload-order, but upload-plus-[exif extraction/conversion]-order. the ~consumer~ task needs to be running with microdot app. (? or queue lifetime?)
-- PIL is not async! processor (converter) has to be on another thread to use the code the same way. or, it could just block (consequences?).
+-  the ~consumer~ task needs to be running with microdot app. (? or queue lifetime?)
 
 *** test client
 #+BEGIN_SRC bash
@@ -81,8 +143,6 @@ curl -X POST "http://localhost:4000/upload" \
     -H "Content-Type:application/octet-stream" \
     -H "filename:filename2.jpg"
 #+END_SRC
-
-#+RESULTS:
 
 testing multi file upload /(shouldnt expect this to upload files in any particular order)/. this works like html5 multi file picker dialog and ~await fetch('/upload', {})~ for file in files form, i.e. server response is recieved before uploading next file.
 #+BEGIN_SRC elisp

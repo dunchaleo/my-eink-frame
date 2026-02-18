@@ -18,7 +18,7 @@ import metadata
 app = Microdot()
 
 meta = metadata.Meta()
-vargs = metadata.Visuals().get_args() #to be improved
+vis_args = metadata.Visuals().get_args() #to be improved
 insertion_q = asyncio.Queue()
 
 # if server_conversion:
@@ -30,7 +30,7 @@ insertion_q = asyncio.Queue()
 @app.route('/uploader')
 async def index(request):
     meta.mwrite()
-    #vargs = metadata.Visuals().get_args() #to be improved
+    #vis_args = metadata.Visuals().get_args() #to be improved
     return send_file('uploader.html')
 @app.post('/upload')
 async def upload(request):
@@ -38,7 +38,7 @@ async def upload(request):
   #      'filename=')[1].strip('"')
     filename:str = request.headers['filename']
     size = int(request.headers['Content-Length'])
-    path = 'working/'+filename #TODO convert to SFN before writing(?)
+    path = 'working/'+filename
     print(path, size)
 
     # write the file to the files directory in 1K chunks
@@ -56,27 +56,44 @@ async def upload(request):
 
     return ''
 
-###other coroutines
+###coroutines
 
 async def insertion_listener(): #or "insertion consumer", from consumer/producer pattern
    while True:
        #exif = await (await insertion_q.get())
        next_task = await insertion_q.get()
-       metadata = (await next_task)[meta.sortby] # i think this is valid syntax
-       meta.insert(metadata) # or meta.insert(to_csv(metadata))
+       #metadata = (await next_task)[meta.sortby] # i think this is valid syntax (dont need this, see Meta.compare)
+       metadata = await next_task
+       #meta.insert(metadata)
 async def process_image(filename):
     #(dont just get exif--let this task totally finish conversion).
     #let OS handle threads by making a subprocess. blocking code can be awaited. see comment in converter.py
-    subcall = [sys.executable, 'converter.py', filename] + vargs
+    subcall = [sys.executable, 'converter.py', filename] + vis_args
     subproc = await asyncio.create_subprocess_exec(
         *subcall, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout,stderr = await subproc.communicate()
-    #we'll get a byte obj (can it be streamed/chunked?) from converter.py, just needs to be serialized to arr. DO NOT want to be text-parsing.
-    return struct.unpack('12s255sI',stdout)
+    #we'll get a byte obj (can it be streamed/chunked?) from converter.py, just needs to be serialized.
+    return decode_subproc_bytes(stdout)
 async def start():
     insertion_listener_handle = asyncio.create_task(insertion_listener())
     server = asyncio.create_task(app.start_server(port=4000, debug=True))
     await asyncio.gather(server,insertion_listener_handle)
+
+###helpers/misc
+def decode_subproc_bytes(stdout):
+    #dont want to be text-parsing so do struct pack/unpack. this gives you a multi-typed tuple.
+    #tuples are immutable so copy it to a list and deal with trailing nulls:
+    #TODO this is weird just make a fmt string ("@255sI") first and pass it into converter.py
+    metadata =  struct.unpack('@255sI',stdout)
+    list = [None]*len(metadata)
+    i = 0
+    for f in metadata:
+        if(type(f) == type(b'')):
+            list[i] = f.rstrip(b'\x00').decode('utf-8')
+        else:
+            list[i] = f
+        i+=1
+    return list
 
 Request.max_content_length = 1024*1024
 server_covnersion = True #convert files in browser or on device
