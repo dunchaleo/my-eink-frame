@@ -14,9 +14,7 @@ from PIL import Image, ImagePalette, ImageOps, ExifTags
 from pillow_heif import register_heif_opener
 from datetime import datetime
 import piexif
-import contextlb #suppress stdout
-
-#kwargs: filename, orientation, mode, background
+#import contextlib #suppress stdout
 
 def log(str):
     with open('.log','a+') as log:
@@ -72,10 +70,11 @@ def exif_to_csv(path):
 import sys
 import struct
 import time
+log(f'the input args are {sys.argv} (file, orientation, mode, background)')
 log('heres some blocking in the body\n')
 #stdout 255 byte chunk for filename, and unsigned int for timestamp. + more ?
 #doing this in C would mean stdout a char* and just know how to delimit it on the other side. so it's similar here:
 out_bytes = struct.pack('@255sI', b'filename.jpg',1770863679)
-#sum(range(30000000*len(argv[0])))
+sum(range(30000000*len(sys.argv[1])))
 log('this is the end of the blocking\n')
 sys.stdout.buffer.write(out_bytes)

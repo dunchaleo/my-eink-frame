@@ -13,7 +13,7 @@ import struct
 
 import metadata
 
-###globals
+###global s
 
 app = Microdot()
 
@@ -68,11 +68,12 @@ async def insertion_listener(): #or "insertion consumer", from consumer/producer
 async def process_image(filename):
     #(dont just get exif--let this task totally finish conversion).
     #let OS handle threads by making a subprocess. blocking code can be awaited. see comment in converter.py
+    #TODO make i/o pipes instead of args?
     subcall = [sys.executable, 'converter.py', filename] + vis_args
     subproc = await asyncio.create_subprocess_exec(
         *subcall, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout,stderr = await subproc.communicate()
     #we'll get a byte obj (can it be streamed/chunked?) from converter.py, just needs to be serialized.
+    stdout,stderr = await subproc.communicate()
     return decode_subproc_bytes(stdout)
 async def start():
     insertion_listener_handle = asyncio.create_task(insertion_listener())
