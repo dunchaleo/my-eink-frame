@@ -12,6 +12,7 @@ from PIL import Image, ImagePalette, ImageOps, ExifTags
 from pillow_heif import register_heif_opener
 from datetime import datetime
 import piexif
+import struct
 #import contextlib #suppress stdout
 
 def log(str):
@@ -48,7 +49,7 @@ def build_exif_dict(image_info, date:datetime): #image.info attribute
 
 #for use in build_exif_dict and write_bytes
 def get_date(image_exif, verbose=False):
-     if image_exif:
+    if image_exif:
         # Make a map with tag names and grab the datetime
         exif = {ExifTags.TAGS[k]: v for k, v in image_exif.items() if k in ExifTags.TAGS and type(v) is not bytes}
         if 'DateTime' in exif:
@@ -61,6 +62,7 @@ def get_date(image_exif, verbose=False):
         date = datetime.now()
         if verbose:
             log(f'No EXIF data found for {image.filename}, creating dummy EXIF data')
+
     return date
 
 #simulate an exif output ideally
@@ -78,7 +80,7 @@ def get_date(image_exif, verbose=False):
 
 #this makes sure Meta.insert() can read the output bytes and is separated like files.csv entry.
 def write_bytes(filename, date:datetime): #datetime + more for whatever other cols i decide to add
-    timestamp = date.timestamp()
+    timestamp = int(date.timestamp())
     out_bytes = struct.pack('@255sI',filename,timestamp)
     sys.stdout.buffer.write(out_bytes)
 
@@ -86,7 +88,7 @@ def main(f, o, m, b):
     image = Image.open(f)
     my_date = get_date(image.getexif(), True)
     log(f'converting: {f} {o} {m} {b}\n')
-    write_bytes()
+    write_bytes(f, my_date) #ensure f is b not s when calling main
 
 if __name__ == '__main__':
     main(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])
