@@ -18,7 +18,8 @@ import metadata
 app = Microdot()
 
 meta = metadata.Meta()
-vis_args = metadata.Visuals().get_args() #to be improved
+
+vis_args =metadata.Visuals.get_args(metadata.Visuals()) #to be improved
 insertion_q = asyncio.Queue()
 
 # if server_conversion:
@@ -64,7 +65,7 @@ async def insertion_listener(): #or "insertion consumer", from consumer/producer
        next_task = await insertion_q.get()
        #metadata = (await next_task)[meta.sortby] # i think this is valid syntax (dont need this, see Meta.compare)
        metadata = await next_task
-       #meta.insert(metadata)
+       meta.insert(metadata)
 async def process_image(filename):
     #(dont just get exif--let this task totally finish conversion).
     #let OS handle threads by making a subprocess. blocking code can be awaited. see comment in converter.py
@@ -88,16 +89,16 @@ def decode_subproc_bytes(stdout):
     metadata =  struct.unpack('@255sI',stdout)
     list = [None]*len(metadata)
     i = 0
-    for f in metadata:
-        if(type(f) == type(b'')):
-            list[i] = f.rstrip(b'\x00').decode('utf-8')
+    for elt in metadata:
+        if(type(elt) == type(b'')):
+            list[i] = elt.rstrip(b'\x00').decode('utf-8')
         else:
-            list[i] = f
+            list[i] = elt
         i+=1
     return list
 
 Request.max_content_length = 1024*1024
-server_covnersion = True #convert files in browser or on device
+server_conversion = True #convert files in browser or on device
 
 ###init
 #microdot example/gpio.weather has usage of a bg task running concurrently with micodot app.

@@ -61,34 +61,28 @@ def get_date(image_exif, verbose=False):
         # No EXIF data exists, use current datetime
         date = datetime.now()
         if verbose:
-            log(f'No EXIF data found for {image.filename}, creating dummy EXIF data')
+            log(f'No EXIF data found for image, creating dummy EXIF data')
 
     return date
 
-#simulate an exif output ideally
-# import sys
-# import struct
-# import time
-# log(f'the input args are {sys.argv} (file, orientation, mode, background)')
-# log('heres some blocking in the body\n')
-# #stdout 255 byte chunk for filename, and unsigned int for timestamp. + more ?
-# #doing this in C would mean stdout a char* and just know how to delimit it on the other side. so it's similar here:
-# out_bytes = struct.pack('@255sI', b'filename.jpg',1770863679)
-# sum(range(30000000*len(sys.argv[1])))
-# log('this is the end of the blocking\n')
-# sys.stdout.buffer.write(out_bytes)
-
 #this makes sure Meta.insert() can read the output bytes and is separated like files.csv entry.
-def write_bytes(filename, date:datetime): #datetime + more for whatever other cols i decide to add
+def write_bytes(filename:bytes, date:datetime, ret=False): #datetime + more for whatever other cols i decide to add
     timestamp = int(date.timestamp())
     out_bytes = struct.pack('@255sI',filename,timestamp)
     sys.stdout.buffer.write(out_bytes)
 
-def main(f, o, m, b):
-    image = Image.open(f)
+    if(ret):
+        return out_bytes
+
+def main(f, o, m, b, ret=False):
+    path = f'working/'+f'{f}' #hardcode upload location here
+    image = Image.open(path)
     my_date = get_date(image.getexif(), True)
     log(f'converting: {f} {o} {m} {b}\n')
-    write_bytes(f, my_date) #ensure f is b not s when calling main
+    write_bytes(f'{f}'.encode('utf-8'),my_date) #ensure f is bytes
+
+    if(ret):
+        return write_bytes(f'{f}'.encode('utf-8'),my_date, ret)
 
 if __name__ == '__main__':
     main(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])
