@@ -9,7 +9,6 @@
     <h1>welcome to the (per-album) upload module</h1>
     <h3>this is where you queue up new files for a chosen album</h3>
     <i><p>there is an html5 multi-file-selection form here.</p>
-      <p><b>idea?</b> user should be able to see input form data reflected back on this page in a list without having uploaded yet; can remove items individually first (no other edits).</p>
     </i>
     <form id="form">
       <input type="file" id="file" name="file" multiple/>
@@ -34,7 +33,7 @@
             method: 'POST',
             body: file,
             headers: head
-        })
+        });
         //promises.push(promise); //[fn:0]
         await promise;
     }
@@ -51,6 +50,19 @@
     upload() not finish until responses have been recieved for all /upload
     requests.
     */
+    </script>
+    <br> <br> <br> <br>
+    <h1>"confirm changes" <sup>or something</sup></h1>
+    <i><p>"full refresh": write the internal files memory object (Meta.files) to files.csv, and then re generate Meta.files from the csv</p>
+      <p>(if csv isn't written before restarting server, that's bad).</p> </i>
+    <input type="button" value="write state to file" id="push">
+    <script>
+      async function refresh(ev){
+          const promise = fetch('/refresh_test');
+          await promise;
+          console.log('wrote files.csv')
+      }
+      document.getElementById('push').addEventListener('click',refresh);
     </script>
   </body>
 </html>

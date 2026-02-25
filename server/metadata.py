@@ -1,4 +1,3 @@
-from PIL.GifImagePlugin import _get_background
 import csv
 
 class Meta:
@@ -45,7 +44,12 @@ class Meta:
         #   more than 5 (or [also tolerance]?) hard inserts in a row means it might be worth ordering.reverse() and sortby=!sortby
         newlen = len(self.files)+1
         pos = newlen-2
-        while not self.compare(file,self.ordering[pos]):
+        #if starting empty, pos = 0
+        if(newlen == 1):
+            comp = lambda pos: True
+        else:
+            comp = lambda pos: self.compare(file,self.ordering[pos])
+        while not comp(pos):
             pos-=1
         #insert real position into ordering after pos
         self.ordering.append(0)
@@ -53,7 +57,7 @@ class Meta:
         while (i>pos+1):
             self.ordering[i] = self.ordering[i-1]
             i-=1
-            self.ordering[pos+1] = newlen - 1
+        self.ordering[pos+1] = newlen - 1
         #ensure said real position is real
         self.files.append(file)
         #fwrite()
@@ -77,6 +81,7 @@ class Meta:
         self.files = [self.files[i] for i in self.ordering] #needs to be list comprehension for random-access, obviously.
         #   (a generator would actually be the same speed due to the listexpression being an indexing operation,
         #   so that encoded as a rule in a generator would be the same speed)
+        self.ordering = list(map(lambda i: i, range(0,len(files)))) #self.files is in order now
         self.fwrite()
         return self.files #useful
 

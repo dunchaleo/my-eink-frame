@@ -13,7 +13,7 @@ import struct
 
 import metadata
 
-###global s
+###globals
 
 app = Microdot()
 
@@ -21,10 +21,6 @@ meta = metadata.Meta()
 
 vis_args =metadata.Visuals.get_args(metadata.Visuals()) #to be improved
 insertion_q = asyncio.Queue()
-
-# if server_conversion:
-# else:
-#    print('todo: wasm/js can convert files in browser as user picks them for upload')
 
 ###routes
 
@@ -56,6 +52,17 @@ async def upload(request):
     await insertion_q.put(converter_handle)
 
     return ''
+@app.get('/refresh_test')
+async def refresh_test(request):
+    meta.close()
+    meta.mfree()
+    meta.mwrite()
+    return ''
+@app.get('/show_test')
+async def show_metadata_object(request):
+    print(meta.files)
+    print(meta.ordering)
+    print(list(meta.file_stream()))
 
 ###coroutines
 
@@ -97,10 +104,14 @@ def decode_subproc_bytes(stdout):
         i+=1
     return list
 
-Request.max_content_length = 1024*1024
+###setup
+Request.max_content_length = 50*1024*1024 #might want to cave and force browser to do some compression
 server_conversion = True #convert files in browser or on device
 
 ###init
+# if server_conversion:
+# else:
+#    print('todo: wasm/js can convert files in browser as user picks them for upload')
 #microdot example/gpio.weather has usage of a bg task running concurrently with micodot app.
 #(async start() with multiple create_tasks, server being one of them--app.start_server() not app.run)
 asyncio.run(start())

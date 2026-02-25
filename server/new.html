@@ -19,10 +19,10 @@
                 formData.append('file', file);
 
                 const head = {
- 'Content-Type': 'application/octet-stream',                                     
- 'Content-Disposition': `attachment; filename="${file.name}"`,
- 'filename':file.name
-};
+                    'Content-Type': 'application/octet-stream',                                     
+                    'Content-Disposition': `attachment; filename="${file.name}"`,
+                    'filename':file.name
+                };
                 const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData,

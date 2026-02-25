@@ -19,15 +19,31 @@ def log(str):
     with open('.log','a+') as log:
         log.write(f'converter.py\t{str}')
 
+
+# the image conversion isnt my main focus so this is probably bad or inefficient, but it's subprocessed so can just swap for anything
+def convert(input_image,o,m,b):
+    if(b == 'light'):
+        display_background = (255,255,255)
+    else:
+        display_background = (0,0,0)
+    input_image = ImageOps.exif_transpose(input_image)
+    width, height = input_image.size
+    # always 800x480, we dont want to give the display driver the job of orientation. the converter should be outputting sideways images when o = 'portrait'
+    target_width = 800
+    target_height = 480
+
+    target_image = input_image.resize((target_width,target_height))
+    return target_image
+
 #not really using this at all right now
-#might have been better fot converter.py subprocess to stdout this as a dict in raw bytes
+#might have been better for converter.py subprocess to stdout this as a dict in raw bytes
 def build_exif_dict(image_info, date:datetime): #image.info attribute
 
     # Try to load existing exif data via piexif
     exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}}
     try:
         if "exif" in image_info:
-            exif_dict = piexif.load(image.info["exif"])
+            exif_dict = piexif.load(image_info["exif"])
     except:
         # If loading fails, use our default structure
         pass
@@ -61,7 +77,7 @@ def get_date(image_exif, verbose=False):
         # No EXIF data exists, use current datetime
         date = datetime.now()
         if verbose:
-            log(f'No EXIF data found for image, creating dummy EXIF data')
+            log(f'No EXIF data found for image')
 
     return date
 
@@ -75,10 +91,14 @@ def write_bytes(filename:bytes, date:datetime, ret=False): #datetime + more for 
         return out_bytes
 
 def main(f, o, m, b, ret=False):
-    path = f'working/'+f'{f}' #hardcode upload location here
+    register_heif_opener()
+    path = f'working/{f}' #hardcode upload path
     image = Image.open(path)
-    my_date = get_date(image.getexif(), True)
     log(f'converting: {f} {o} {m} {b}\n')
+    my_date = get_date(image.getexif(), True)
+    converted = convert(image, o, m, b)
+    outpath = f'storage/{f}' #hardcode storage path
+    converted.save(outpath, format="jpeg")
     write_bytes(f'{f}'.encode('utf-8'),my_date) #ensure f is bytes
 
     if(ret):
