@@ -26,7 +26,6 @@ insertion_q = asyncio.Queue()
 
 @app.route('/uploader')
 async def index(request):
-    meta.mwrite()
     #vis_args = metadata.Visuals().get_args() #to be improved
     return send_file('uploader.html')
 @app.post('/upload')
@@ -89,6 +88,7 @@ async def start():
     await asyncio.gather(server,insertion_listener_handle)
 
 ###helpers/misc
+
 def decode_subproc_bytes(stdout):
     #dont want to be text-parsing so do struct pack/unpack. this gives you a multi-typed tuple.
     #tuples are immutable so copy it to a list and deal with trailing nulls:
@@ -107,11 +107,11 @@ def decode_subproc_bytes(stdout):
 ###setup
 Request.max_content_length = 50*1024*1024 #might want to cave and force browser to do some compression
 server_conversion = True #convert files in browser or on device
-
 ###init
-# if server_conversion:
-# else:
-#    print('todo: wasm/js can convert files in browser as user picks them for upload')
-#microdot example/gpio.weather has usage of a bg task running concurrently with micodot app.
-#(async start() with multiple create_tasks, server being one of them--app.start_server() not app.run)
-asyncio.run(start())
+if(server_conversion):
+    meta.mwrite()
+    #microdot example/gpio.weather has usage of a bg task running concurrently with micodot app.
+    #(async start() with multiple create_tasks, server being one of them; app.start_server() not app.run)
+    asyncio.run(start())
+else:
+    print('todo: wasm/js can convert files in browser as user picks them for upload (not implemented)')

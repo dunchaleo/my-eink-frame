@@ -7,7 +7,8 @@
 #everyting in this file needs to be silent since it's subprocessed. debug logging has to be to a file.
 
 import sys
-import os.path
+import os
+from pathlib import Path
 from PIL import Image, ImagePalette, ImageOps, ExifTags
 from pillow_heif import register_heif_opener
 from datetime import datetime
@@ -21,12 +22,19 @@ def log(str):
 
 
 # the image conversion isnt my main focus so this is probably bad or inefficient, but it's subprocessed so can just swap for anything
-def convert(input_image,o,m,b):
+def convert(input_image:Image.Image,o,m,b) -> Image.Image:
+    # force rgb/a
+    if input_image.mode == "CMYK":
+        input_image = input_image.convert("RGB")
+    if input_image.mode not in ("RGB", "RGBA", "L", "P"):
+        input_image = input_image.convert("RGBA")
+    # actually rotate exif rotation
+    input_image = ImageOps.exif_transpose(input_image)
+
     if(b == 'light'):
         display_background = (255,255,255)
     else:
         display_background = (0,0,0)
-    input_image = ImageOps.exif_transpose(input_image)
     width, height = input_image.size
     # always 800x480, we dont want to give the display driver the job of orientation. the converter should be outputting sideways images when o = 'portrait'
     target_width = 800
@@ -77,7 +85,7 @@ def get_date(image_exif, verbose=False):
         # No EXIF data exists, use current datetime
         date = datetime.now()
         if verbose:
-            log(f'No EXIF data found for image')
+            log(f'No EXIF data found for image\n')
 
     return date
 
@@ -92,14 +100,15 @@ def write_bytes(filename:bytes, date:datetime, ret=False): #datetime + more for 
 
 def main(f, o, m, b, ret=False):
     register_heif_opener()
-    path = f'working/{f}' #hardcode upload path
-    image = Image.open(path)
-    log(f'converting: {f} {o} {m} {b}\n')
-    my_date = get_date(image.getexif(), True)
-    converted = convert(image, o, m, b)
-    outpath = f'storage/{f}' #hardcode storage path
-    converted.save(outpath, format="jpeg")
-    write_bytes(f'{f}'.encode('utf-8'),my_date) #ensure f is bytes
+    path = f'./working/{f}' #hardcode upload path
+    outpath = f'./storage/{f}.png' #hardcode storage path
+    with Image.open(path) as image:
+        log(f'converting: {f} {o} {m} {b}\n')
+        my_date = get_date(image.getexif(), True)
+        converted = convert(image, o, m, b)
+        converted.save(outpath, format='PNG')
+    #ensure f is bytes
+    write_bytes(f'{f}'.encode('utf-8'),my_date)
 
     if(ret):
         return write_bytes(f'{f}'.encode('utf-8'),my_date, ret)
