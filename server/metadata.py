@@ -44,13 +44,19 @@ class Meta:
         #   more than 5 (or [also tolerance]?) hard inserts in a row means it might be worth ordering.reverse() and sortby=!sortby
         newlen = len(self.files)+1
         pos = newlen-2
-        #if starting empty, pos = 0
-        if(newlen == 1):
-            comp = lambda pos: True
-        else:
-            comp = lambda pos: self.compare(file,self.ordering[pos])
-        while not comp(pos):
-            pos-=1
+        #doesn't work:  (?)
+            #if starting empty, pos = 0
+            #comp = lambda pos: True if newlen == 1 else self.compare(file,self.ordering[pos])
+            #while not comp(pos):
+                #pos-=1
+        while(pos>=0):
+            print(f'DEBUG Meta.insert(): comping new ins to files[ordering[{pos}]] (ordering: {self.ordering})')
+            comp = self.compare(file, self.ordering[pos])
+            print(f'DEBUG\tMeta.insert(): {comp}')
+            if(comp):
+                break
+            else:
+                pos-=1
         #insert real position into ordering after pos
         self.ordering.append(0)
         i = newlen-1
@@ -62,10 +68,11 @@ class Meta:
         self.files.append(file)
         #fwrite()
         # ^ insert really doesnt need this. fwrite is when user "applies changes"; having the buffer open (self.files/ordering) means changes to file dont need to be made.
-        print(f'inserted {file}')
+        print(f'Meta.insert(): inserted {file}')
     def compare(self, new_elt, elt_idx):
         new_data = new_elt[self.sortby]
         elt_data = self.files[elt_idx][self.sortby]
+        print(f'DEBUG Meta.compare(): comping new ins to files[{elt_idx}]')
         if(self.desc):
             max = int(self.files[0][self.sortby])
             complement = max - int(elt_data)
@@ -81,7 +88,7 @@ class Meta:
         self.files = [self.files[i] for i in self.ordering] #needs to be list comprehension for random-access, obviously.
         #   (a generator would actually be the same speed due to the listexpression being an indexing operation,
         #   so that encoded as a rule in a generator would be the same speed)
-        self.ordering = list(map(lambda i: i, range(0,len(files)))) #self.files is in order now
+        self.ordering = list(map(lambda i: i, range(0,len(self.files)))) #self.files is in order now
         self.fwrite()
         return self.files #useful
 
