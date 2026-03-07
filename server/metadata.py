@@ -21,7 +21,7 @@ class Meta:
         with open('./files.csv', 'w') as f: #w mode clears file first
             writer = csv.writer(f)
             for row in self.files:
-                f.write(row)
+                writer.writerow(row)
     def mfree(self):
         self.files = []
         self.ordering = []
@@ -29,7 +29,7 @@ class Meta:
         #could this still be optimized a lot?
         #if just toggling desc/asc, reversal is faster than list.sort()
         if(self.sortby == sortby and self.desc == (not desc)):
-            self.files.reverse()
+            self.ordering.reverse()
         else:
             self.ordering.sort(reverse=desc, key=lambda i: self.files[i][sortby])
         #also a setter

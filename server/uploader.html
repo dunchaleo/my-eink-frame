@@ -64,6 +64,35 @@
       }
       document.getElementById('push').addEventListener('click',refresh);
     </script>
+    <br> <br> <br> <br>
+    <h1>debug</h1>
+    <ul>
+      <li>
+        <input type="button" value="stdout meta obj" id="stdoutmeta">
+      </li>
+      <li>
+        <input type="button" value="call Meta.[textarea[0]]([textarea[1..n]])" id="callmetadot">
+        <form>
+          <input type="text" value="chsort 1 True" id="pycode">
+        </form>
+      </li>
+    </ul>
+    <script>
+      async function stdoutMeta(ev){
+          const promise = fetch('/show_test');
+          await promise;
+          console.log('wrote to server process stdout');
+      }
+      async function callMetaDot(ev){
+          const call = document.getElementById('pycode').value;
+          const promise = fetch('/call_meta_method', {
+              method: 'POST',
+              body: call});
+          await promise;
+      }
+      document.getElementById('stdoutmeta').addEventListener('click',stdoutMeta);
+      document.getElementById('callmetadot').addEventListener('click',callMetaDot);
+    </script>
   </body>
 </html>
 

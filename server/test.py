@@ -19,10 +19,10 @@ app = Microdot()
 
 meta = metadata.Meta()
 
-vis_args =metadata.Visuals.get_args(metadata.Visuals()) #to be improved
+vis_args = metadata.Visuals.get_args(metadata.Visuals()) #to be improved
 insertion_q = asyncio.Queue()
 
-###routes
+###main routes
 
 @app.route('/uploader')
 async def index(request):
@@ -57,11 +57,23 @@ async def refresh_test(request):
     meta.mfree()
     meta.mwrite()
     return ''
+### debug routes
 @app.get('/show_test')
 async def show_metadata_object(request):
     print(meta.files)
     print(meta.ordering)
     print(list(meta.file_stream()))
+@app.post('/call_meta_method')
+async def call_meta_method(request):
+    print('pressed')
+    text = request.body.decode().strip()
+    parts = text.split()
+    name = parts[0]
+    args = parts[1:]
+    args_typed = [eval(i) for i in args]
+    print(f'{name} {args_typed}')
+    func = getattr(meta, name)
+    res = func(*args_typed)
 
 ###coroutines
 
