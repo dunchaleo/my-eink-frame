@@ -57,7 +57,9 @@ async def refresh_test(request):
     meta.mfree()
     meta.mwrite()
     return ''
-### debug routes
+
+###debug routes
+
 @app.get('/show_test')
 async def show_metadata_object(request):
     print(meta.files)
