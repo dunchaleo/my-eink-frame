@@ -88,8 +88,11 @@ class Meta:
         self.files = [self.files[i] for i in self.ordering] #needs to be list comprehension for random-access, obviously.
         #   (a generator would actually be the same speed due to the listexpression being an indexing operation,
         #   so that encoded as a rule in a generator would be the same speed)
-        self.ordering = list(map(lambda i: i, range(0,len(self.files)))) #self.files is in order now (not needed when shutting down server ofc but)
+        #write csv
         self.fwrite()
+        #since self.files is in order now, set self.ordering
+        self.ordering = list(map(lambda i: i, range(0,len(self.files))))
+        #   (not needed when shutting down server or for "closing" metadata object)
         return self.files #useful
 
 class Visuals:

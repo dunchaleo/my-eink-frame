@@ -1,3 +1,5 @@
+##  maybe ?????
+
 #IDEA: 2 devices connected by ethernet, one a rpi/SPC and the other an
 #esp32/MCU. would need to find some solution for powering them together. MCU
 #could drive the frame, and would be able to make requests over the wired
@@ -14,3 +16,6 @@
 #in support of this idea: downloader client/driver can implement a "select where
 #date" (simple, no sqlite, a more proper version would be like an album
 #combiner/new album maker, which would also involve being a client)
+
+host = "127.0.0.1"
+driver_fs = "../driver/" #running this file from [project]/server/ right now

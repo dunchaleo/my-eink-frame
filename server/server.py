@@ -123,7 +123,6 @@ Request.max_content_length = 50*1024*1024 #might want to cave and force browser 
 server_conversion = True #convert files in browser or on device
 ###init
 if(server_conversion):
-    meta.mwrite()
     #microdot example/gpio.weather has usage of a bg task running concurrently with micodot app.
     #(async start() with multiple create_tasks, server being one of them; app.start_server() not app.run)
     asyncio.run(start())
