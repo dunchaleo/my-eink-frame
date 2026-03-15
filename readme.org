@@ -43,6 +43,7 @@
   - bring your own server (q: any examples where people have used inkplate w esp32 http server?)
 - (hardware)
   - helpful thread:https://forums.pimoroni.com/t/how-to-connect-pico-to-inky-impression-7-3/24715/9
+  - guy with opinions: https://jamesachambers.com/raspberry-pi-zero-2-review-it-sucks/ (is adafruit's circuitpython similarly controversial against micropython?)
 ** idea
 the inky python library is not for micropython/circuitpython. so you have to use a full pi, not an esp32 or pi pico (though the reddit guy got that to work).
 i still dont know how the chinese way works; it's less clear but it seems to be better in some ways.
@@ -55,3 +56,8 @@ commit to the pi zero, try to make it easy to redo on esp32. avoid bash scripts 
 most importantly, commit to an http server being run on the device and doing lan wifi, user should be able to log in on browser on phone and upload pics bare minimum.
 theres still a ton of different possible implementation details/configurations from that.
 also probably a really bad idea to have the thing driving the frame do the image conversions. needs to be a server backend job (which happens to be the same rpi zero driving the frame) or could even make client do it (webasm, you can do pillow in piodide).
+** ideas cont.
+with one rpi zero, i need to simulate having 2 MCUs instead, or having only one MCU, or one pi and one esp, or any weird future configuration that would be pretty hard to actually work out physically.
+*** config toggle
+- switch for configuration mode: on means server is running. off means driver is running. i should design both software to specifically NOT be running at the same time. they access shared data through filesystem only.
+  this switch can be the button on pimoroni inky, a master python process can be checking it and switching the server/driver processes.
