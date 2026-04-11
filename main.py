@@ -106,7 +106,8 @@ def sqlite_filter(col,filtermode,tz):
         return 1
 
 def init(mntpath, destpath, settings:Settings):
-    #indescriminately load all files in all dirs/subdirs into mem as Image and convert them, then dump them into destpath. and create sqlite db file.
+    #indescriminately copy all image files to host disk (destpath) and convert them immediately after all copied.
+    #also create sqlite db file.
     #limitation: if user has same filename in different dirs on their drive, the latest read one will overwrite. we arent doing multiple "albums" yet.
     register_heif_opener()
 
@@ -124,14 +125,26 @@ def init(mntpath, destpath, settings:Settings):
         for file in files:
             fp = os.path.join(root,file)
             destfp = os.path.join(destpath,file)
-            with Image.open(fp) as image:
-                converted = convert(image, settings.orientation, settings.mode, settings.background)
-                my_date = get_date(image.getexif(), True)
-                #get something like destpath/image.heic.PNG
-                converted.save(destfp, 'PNG')
-                #write record to db. pk fname doesnt need png ext
-                cursor.execute('INSERT OR REPLACE INTO pics (fname, ts) VALUES (?, ?)',
-                               (file, int(my_date.timestamp()))) #NOTE could use f-strings here the same way. affects when they eval?
+            try:
+                shutil.copyfile(fp,destfp)
+            except OSError as e:
+                #break loop on first FileNotFoundError: probably means mnt point is empty (drive unplugged)
+                #(also, copyfile might have failed but still written to destfp--get rid of it)
+                if os.path.isfile(dstfp):
+                    os.remove(dstfp)
+                break
+
+    for file in os.listdir(destpath):
+        fp = os.path.join(destpath,file)
+        with Image.open(fp) as image:
+            converted = convert(image, settings.orientation, settings.mode, settings.background)
+            my_date = get_date(image.getexif(), True)
+            #get something like destpath/image.heic.PNG
+            converted.save(fp, 'PNG')
+            #write record to db. pk fname doesnt need png ext
+            cursor.execute('INSERT OR REPLACE INTO pics (fname, ts) VALUES (?, ?)',
+                            (file, int(my_date.timestamp()))) #NOTE could use f-strings here the same way. affects when they eval?
+
     conn.commit()
     conn.close()
 
