@@ -15,7 +15,26 @@ import piexif
 
 import sqlite3
 
+import asyncio
+import subprocess
+
 DEV = '/dev/sda1'
+#mount watching could have gone in a thread instead. trying to keep just asyncio + subprocessing.
+#(i dont understand inotify at all)
+watcher_code = '''
+import inotify.adapters
+import os
+import sys
+mntpath = sys.argv[1] #first arg, not this str
+i = inotify.adapters.Inotify()
+i.add_watch(\'proc/mounts\')
+for event in i.event_gen(yield_nones=False):
+   type_names = event[1]
+   if \'IN_MODIFY\' in type_names:
+      if os.path.ismount(mntpath):
+        sys.stdout.buffer.write(\'ping!\')
+'''
+mount_event = asyncio.Event()
 
 class Settings:
     def __init__(self,path:str):
@@ -55,18 +74,28 @@ class Settings:
         ret.insert(6,sorderby)
         return ret
 
-def main(mntpath, storagepath, do_init):
-    #get settings
-    settings = Settings(os.path.join(mntpath,'settings.txt'))
+async def main(mntpath, storagepath):
 
-    #set up storage dir with converted files and db
-    if(do_init):
-        init(mntpath, storagepath, settings)
+    watch_mount_subproc = await asyncio.create_subprocess_exec(
+        [sys.executable, '-c', watcher_code], stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout,stderr = await watch_mount_subproc.communicate()
+    while True:
+        #get settings
+        settings = Settings(os.path.join(mntpath,'settings.txt'))
 
-    #run indefinitely
-    run(storagepath, settings)
+        if mount_event.is_set():
+            mount_event.clear()
+            #set up storage dir with converted files and db
+            init(mntpath, storagepath, settings)
+            #udisksd should have auto mounted drive. unmount it after init()
+            subprocess.run(('udisksctl', 'unmount', '-b', DEV))
+        await run(storagepath,settings)
 
-def run(storagepath, settings):
+
+
+async def run(storagepath, settings:Settings):
+    #async but note each line blocks except wait_for and the timeout
+
     #TODO on the fly inky 4 buttons: filter on (some in cycle), filter off (all in cycle), sort on (display next in order), sort off (display random next)
     display = inky.auto()
     conn = sqlite3.connect(os.path.join(storagepath, 'pics.db'))
@@ -75,18 +104,27 @@ def run(storagepath, settings):
     squery = f'SELECT fname FROM pics WHERE FILTER(ts, \'{settings.filtermode}\', {settings.tz}) {settings.sorderby}'
     i=-1
     while True:
-        #really bad design :^)
+        #really bad design doing this query every time :^)
         files:list[tuple[str,]] = cursor.execute(squery).fetchall()
         if(i >= len(files)):
             i=0
         else:
             i+=1
+
         file:str = f'{files[i][0]}.PNG'
         fp = os.path.join(storagepath,file)
         with Image.open(fp) as image:
             display.set_image(image)
             display.show()
-        time.sleep(settings.spf)
+
+        try:
+            #we "want" this to raise timeout err for normal operation.
+            #(event flag toggles (drive mounts), Event.wait() returns, we quit run()).
+            await asyncio.wait_for(mount_event.wait(), settings.spf)
+            return ''
+        except asyncio.TimeoutError:
+            #SPF seconds passed
+            continue
 def sqlite_filter(col,filtermode,tz):
     #hardcode my #1 desired feature:
     #return t if timestamp month is current month right now
@@ -106,6 +144,7 @@ def sqlite_filter(col,filtermode,tz):
         return 1
 
 def init(mntpath, destpath, settings:Settings):
+    #(for now, keep this regular sync function, does not get interrupted through copying or converting)
     #indescriminately copy all image files to host disk (destpath) and convert them immediately after all copied.
     #also create sqlite db file.
     #limitation: if user has same filename in different dirs on their drive, the latest read one will overwrite. we arent doing multiple "albums" yet.
@@ -130,8 +169,8 @@ def init(mntpath, destpath, settings:Settings):
             except OSError as e:
                 #break loop on first FileNotFoundError: probably means mnt point is empty (drive unplugged)
                 #(also, copyfile might have failed but still written to destfp--get rid of it)
-                if os.path.isfile(dstfp):
-                    os.remove(dstfp)
+                if os.path.isfile(destfp):
+                    os.remove(destfp)
                 break
 
     for file in os.listdir(destpath):
