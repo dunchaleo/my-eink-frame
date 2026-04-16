@@ -18,23 +18,19 @@ import sqlite3
 import asyncio
 import subprocess
 
+#notes on auto mounting and detecting device plug-ins:
+#claude made example w/ pyudev + asyncio, i found a similar usage of that here:
+#  https://github.com/foresto/joystickwake/blob/leave-github/joystickwake
+#claude: "add_reader is asyncio's exposure of the reactor pattern"
+#helpful: https://www.packtpub.com/en-us/product/nodejs-design-patterns-second-edition-9781785885587/chapter/1-welcome-to-the-nodejs-platform-1/section/the-reactor-pattern-ch01lvl1sec04
+
+dev_add_evt = asyncio.Event()
+
+context = pyudev.Context()
+monitor = pyudev.Monitor.from_netlink(context)
+monitor.filter_by(subsystem='block', device_type='partition')
+
 DEV = '/dev/sda1'
-#mount watching could have gone in a thread instead. trying to keep just asyncio + subprocessing.
-#(i dont understand inotify at all)
-watcher_code = '''
-import inotify.adapters
-import os
-import sys
-mntpath = sys.argv[1] #first arg, not this str
-i = inotify.adapters.Inotify()
-i.add_watch(\'proc/mounts\')
-for event in i.event_gen(yield_nones=False):
-   type_names = event[1]
-   if \'IN_MODIFY\' in type_names:
-      if os.path.ismount(mntpath):
-        sys.stdout.buffer.write(\'ping!\')
-'''
-mount_event = asyncio.Event()
 
 class Settings:
     def __init__(self,path:str):
@@ -74,23 +70,33 @@ class Settings:
         ret.insert(6,sorderby)
         return ret
 
-async def main(mntpath, storagepath):
 
-    watch_mount_subproc = await asyncio.create_subprocess_exec(
-        [sys.executable, '-c', watcher_code], stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout,stderr = await watch_mount_subproc.communicate()
+async def main(mntpath, storagepath):
+    loop = asyncio.get_running_loop()
+    #remember, this basically means poll_udev can run between every line in main()
+    loop.add_reader(monitor.fileno(), poll_udev)
+
     while True:
-        #get settings
+        #get settings #(move this, do whenever init() to be called)
         settings = Settings(os.path.join(mntpath,'settings.txt'))
 
-        if mount_event.is_set():
-            mount_event.clear()
+        if dev_add_evt.is_set():
+            dev_add_evt.clear()
+            #mount device now
+            my_mount() #aka subprocess.run udisksctl mount DEV
             #set up storage dir with converted files and db
-            init(mntpath, storagepath, settings)
+            await init(mntpath, storagepath, settings) #NOTE, init() is still sync, so it needs to be run in a thread with run_in_executor
+            #  (although it could just stay sync and block, big deal? biggest problem add_reader's callback either finds multiple adds or only sees the most recent add? it just wont trigger until init() finishes)
+
             #udisksd should have auto mounted drive. unmount it after init()
             subprocess.run(('udisksctl', 'unmount', '-b', DEV))
         await run(storagepath,settings)
-
+def poll_udev():
+    #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available
+    device = monitor.poll(timeout=0)
+    if device and device.action == 'add':
+        #for this project, theres only one possible device, the open rpi usb port
+        device_event.set()
 
 
 async def run(storagepath, settings:Settings):
@@ -119,8 +125,8 @@ async def run(storagepath, settings:Settings):
 
         try:
             #we "want" this to raise timeout err for normal operation.
-            #(event flag toggles (drive mounts), Event.wait() returns, we quit run()).
-            await asyncio.wait_for(mount_event.wait(), settings.spf)
+            #(event flag toggles (drive plugged in), Event.wait() returns, we quit run()).
+            await asyncio.wait_for(dev_add_evt.wait(), settings.spf)
             return ''
         except asyncio.TimeoutError:
             #SPF seconds passed
