@@ -15,6 +15,7 @@ import piexif
 
 import sqlite3
 
+import pyudev
 import asyncio
 import subprocess
 
@@ -73,7 +74,7 @@ class Settings:
 
 async def main(mntpath, storagepath):
     loop = asyncio.get_running_loop()
-    #remember, this basically means poll_udev can run between every line in main()
+    #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
 
     while True:
@@ -83,20 +84,19 @@ async def main(mntpath, storagepath):
         if dev_add_evt.is_set():
             dev_add_evt.clear()
             #mount device now
-            my_mount() #aka subprocess.run udisksctl mount DEV
+            subprocess.run(('mount', DEV))
             #set up storage dir with converted files and db
             await init(mntpath, storagepath, settings) #NOTE, init() is still sync, so it needs to be run in a thread with run_in_executor
             #  (although it could just stay sync and block, big deal? biggest problem add_reader's callback either finds multiple adds or only sees the most recent add? it just wont trigger until init() finishes)
 
-            #udisksd should have auto mounted drive. unmount it after init()
-            subprocess.run(('udisksctl', 'unmount', '-b', DEV))
+            subprocess.run(('umount', DEV))
         await run(storagepath,settings)
 def poll_udev():
     #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available
     device = monitor.poll(timeout=0)
     if device and device.action == 'add':
         #for this project, theres only one possible device, the open rpi usb port
-        device_event.set()
+        dev_add_evt.set()
 
 
 async def run(storagepath, settings:Settings):
