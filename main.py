@@ -32,6 +32,11 @@ monitor = pyudev.Monitor.from_netlink(context)
 monitor.filter_by(subsystem='block', device_type='partition')
 
 DEV = '/dev/sda1'
+MNTPATH = '/mnt/ext/'
+STORAGEPATH = '/var/lib/piframe-service'
+#  useradd --system --no-create-home piframe-service
+#  chown -R piframe-service:piframe-service /var/lib/piframe-service
+#  ^(TODO also set systemd service up)
 
 class Settings:
     def __init__(self,path:str):
@@ -72,32 +77,30 @@ class Settings:
         return ret
 
 
-async def main(mntpath, storagepath):
+async def main():
     loop = asyncio.get_running_loop()
     #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
 
     while True:
-        #get settings #(move this, do whenever init() to be called)
-        settings = Settings(os.path.join(mntpath,'settings.txt'))
-
         if dev_add_evt.is_set():
             dev_add_evt.clear()
             #mount device now
-            subprocess.run(('mount', DEV))
-            #set up storage dir with converted files and db
-            await init(mntpath, storagepath, settings) #NOTE, init() is still sync, so it needs to be run in a thread with run_in_executor
-            #  (although it could just stay sync and block, big deal? biggest problem add_reader's callback either finds multiple adds or only sees the most recent add? it just wont trigger until init() finishes)
-
+            subprocess.run(('mount', DEV, MNTPATH))
+            #get settings & set up storage dir with converted files and db
+            settings = Settings(os.path.join(MNTPATH,'settings.txt'))
+            init(MNTPATH, STORAGEPATH, settings) #NOTE, init() is still sync
+            #  (it could just stay sync and block, big deal? biggest problem add_reader's callback either finds multiple adds or only sees the most recent add? it just wont trigger until init() finishes)
+            #  (could also run in executor?)
+            #let init finish before unmount
             subprocess.run(('umount', DEV))
-        await run(storagepath,settings)
+        await run(STORAGEPATH,settings)
 def poll_udev():
     #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available
     device = monitor.poll(timeout=0)
     if device and device.action == 'add':
         #for this project, theres only one possible device, the open rpi usb port
         dev_add_evt.set()
-
 
 async def run(storagepath, settings:Settings):
     #async but note each line blocks except wait_for and the timeout
