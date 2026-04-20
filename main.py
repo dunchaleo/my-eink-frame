@@ -59,11 +59,13 @@ class Settings:
         #month/season/all
         #int utc offset hours (e.g. est/dst = -4/-5)
 
-        if(self.path == ''):
-            settings = ['portrait','fill','light','60','forwards','ts','month','-5']
-        else:
-            with open(self.path, 'r') as f:
-                settings = f.read().splitlines()
+        settings = ['portrait','fill','light','60','forwards','ts','month','-5']
+        if self.path:
+            try:
+                with open(self.path, 'r') as f:
+                    settings = f.read().splitlines()
+            except FileNotFoundError:
+                pass
         ret:list[str|int] = list(settings) #list() is like strdup, helps type checker
         ret[3] = int(settings[3])
         ret[7] = int(settings[7])
@@ -89,9 +91,8 @@ async def main():
             subprocess.run(('mount', DEV, MNTPATH))
             #get settings & set up storage dir with converted files and db
             settings = Settings(os.path.join(MNTPATH,'settings.txt'))
-            init(MNTPATH, STORAGEPATH, settings) #NOTE, init() is still sync
-            #  (it could just stay sync and block, big deal? biggest problem add_reader's callback either finds multiple adds or only sees the most recent add? it just wont trigger until init() finishes)
-            #  (could also run in executor?)
+            #convert images, save in storage dir, create db (sync init() call will probably take noticeable time)
+            init(MNTPATH, STORAGEPATH, settings)
             #let init finish before unmount
             subprocess.run(('umount', DEV))
         await run(STORAGEPATH,settings)
@@ -101,6 +102,7 @@ def poll_udev():
     if device and device.action == 'add':
         #for this project, theres only one possible device, the open rpi usb port
         dev_add_evt.set()
+    #NOTE in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
 
 async def run(storagepath, settings:Settings):
     #async but note each line blocks except wait_for and the timeout
@@ -110,7 +112,7 @@ async def run(storagepath, settings:Settings):
     conn = sqlite3.connect(os.path.join(storagepath, 'pics.db'))
     cursor = conn.cursor()
     conn.create_function('FILTER',3, sqlite_filter)
-    squery = f'SELECT fname FROM pics WHERE FILTER(ts, \'{settings.filtermode}\', {settings.tz}) {settings.sorderby}'
+    squery = f'SELECT fname FROM pics WHERE FILTER(ts, \'{settings.filtermode}\', {settings.tz}) {settings.sorderby}' #TODO: keep sorderby, but take out WHERE clause and FILTER, just do that in py loop directly
     i=-1
     while True:
         #really bad design doing this query every time :^)
@@ -153,10 +155,10 @@ def sqlite_filter(col,filtermode,tz):
         return 1
 
 def init(mntpath, destpath, settings:Settings):
-    #(for now, keep this regular sync function, does not get interrupted through copying or converting)
     #indescriminately copy all image files to host disk (destpath) and convert them immediately after all copied.
     #also create sqlite db file.
     #limitation: if user has same filename in different dirs on their drive, the latest read one will overwrite. we arent doing multiple "albums" yet.
+    #(regular sync function, does not get interrupted through copying or converting. there are some unsafe cases where bugs would appear like quickly unplugging, plugging, then unplugging again during conversions, which would set dev_add_evt since monitor sees an add when init finishes and evt loop is reopened, and the subproc mount would fail.. but why would you do that?)
     register_heif_opener()
 
     #first clear destpath
@@ -175,7 +177,7 @@ def init(mntpath, destpath, settings:Settings):
             destfp = os.path.join(destpath,file)
             try:
                 shutil.copyfile(fp,destfp)
-            except OSError as e:
+            except OSError:
                 #break loop on first FileNotFoundError: probably means mnt point is empty (drive unplugged)
                 #(also, copyfile might have failed but still written to destfp--get rid of it)
                 if os.path.isfile(destfp):
