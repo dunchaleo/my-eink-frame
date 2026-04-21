@@ -111,48 +111,55 @@ async def run(storagepath, settings:Settings):
     display = inky.auto()
     conn = sqlite3.connect(os.path.join(storagepath, 'pics.db'))
     cursor = conn.cursor()
-    conn.create_function('FILTER',3, sqlite_filter)
-    squery = f'SELECT fname FROM pics WHERE FILTER(ts, \'{settings.filtermode}\', {settings.tz}) {settings.sorderby}' #TODO: keep sorderby, but take out WHERE clause and FILTER, just do that in py loop directly
-    i=-1
-    while True:
-        #really bad design doing this query every time :^)
-        files:list[tuple[str,]] = cursor.execute(squery).fetchall()
-        if(i >= len(files)):
-            i=0
-        else:
-            i+=1
 
+    squery = f'SELECT fname,ts FROM pics {settings.sorderby}'
+    files:list[tuple[str,int]] = cursor.execute(squery).fetchall()
+    i = 0
+    while i < len(files):
         file:str = f'{files[i][0]}.PNG'
         fp = os.path.join(storagepath,file)
-        with Image.open(fp) as image:
-            display.set_image(image)
-            display.show()
+        ts = files[i][1]
 
-        try:
-            #we "want" this to raise timeout err for normal operation.
-            #(event flag toggles (drive plugged in), Event.wait() returns, we quit run()).
-            await asyncio.wait_for(dev_add_evt.wait(), settings.spf)
-            return ''
-        except asyncio.TimeoutError:
-            #SPF seconds passed
-            continue
-def sqlite_filter(col,filtermode,tz):
-    #hardcode my #1 desired feature:
-    #return t if timestamp month is current month right now
-    #could make this more performant by returning ranges of timestamps given desired month, corresponding to e.g. december of every year for the last 50 years (100 vals) and then sql could check if col is within ranges[0]..ranges[1] or within ranges[2]..ranges[3] or ...
+        if filter(ts, settings.filtermode, settings.tz):
+            with Image.open(fp) as image:
+                display.set_image(image)
+                display.show()
+
+            try:
+                #we "want" this to raise timeout err for normal operation.
+                #(event flag toggles (drive plugged in), Event.wait() returns, we quit run()).
+                await asyncio.wait_for(dev_add_evt.wait(), settings.spf)
+                return ''
+            except asyncio.TimeoutError:
+                #SPF seconds passed
+                pass
+
+        i+=1
+        if i >= len(files):
+            i=0
+def filter(ts,filtermode,tz):
+    #filtering could be much more dynamic, instead i'm hardcoding day/month/season filtering
 
     # we dont store python datetimes in db.
-    # TODO list of ranges. dont use datetime in here, cheating.
-    dt = datetime.fromtimestamp(col, timezone(timedelta(hours=tz)))
+    dt = datetime.fromtimestamp(ts, timezone(timedelta(hours=tz)))
     # datetime.fromtimestamp(datetime.now().timestamp(), timezone(timedelta(hours=-4))).strftime("%d %m %y %I:%M%p")
-    if(filtermode == 'month'):
-        if(dt.month == datetime.now().month):
-            return 1
-        else:
-            return 0
-    else:
-        #season mode not implemented
+    cur_dt = datetime.now()
+    cur = [cur_dt.day, cur_dt.month, my_dt_season(cur_dt)]
+    if filtermode == 'day':
+        return (cur[0] == dt.day) and (cur[1] == dt.month)
+    elif filtermode == 'month':
+        return cur[1] == dt.month
+    elif filtermode == 'season':
+        return cur[2] == my_dt_season(dt)
+def my_dt_season(dt):
+    if dt.month in [12, 1, 2]:
         return 1
+    elif dt.month in [3, 4, 5]:
+        return 2
+    elif dt.month in [6, 7, 8]:
+        return 3
+    elif dt.month in [9, 10, 11]:
+        return 4
 
 def init(mntpath, destpath, settings:Settings):
     #indescriminately copy all image files to host disk (destpath) and convert them immediately after all copied.
