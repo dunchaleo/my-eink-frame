@@ -80,6 +80,7 @@ class Settings:
 
 
 async def main():
+    monitor.start()
     loop = asyncio.get_running_loop()
     #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
@@ -117,8 +118,8 @@ async def run(storagepath, settings:Settings):
     i = 0
     while i < len(files):
         file:str = f'{files[i][0]}.PNG'
-        fp = os.path.join(storagepath,file)
-        ts = files[i][1]
+        fp:str = os.path.join(storagepath,file)
+        ts:int = files[i][1]
 
         if filter(ts, settings.filtermode, settings.tz):
             with Image.open(fp) as image:
@@ -137,7 +138,7 @@ async def run(storagepath, settings:Settings):
         i+=1
         if i >= len(files):
             i=0
-def filter(ts,filtermode,tz):
+def filter(ts:int,filtermode:str,tz:int):
     #filtering could be much more dynamic, instead i'm hardcoding day/month/season filtering
 
     # we dont store python datetimes in db.
@@ -151,7 +152,9 @@ def filter(ts,filtermode,tz):
         return cur[1] == dt.month
     elif filtermode == 'season':
         return cur[2] == my_dt_season(dt)
-def my_dt_season(dt):
+    else:
+        return True
+def my_dt_season(dt:datetime):
     if dt.month in [12, 1, 2]:
         return 1
     elif dt.month in [3, 4, 5]:
