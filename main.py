@@ -59,22 +59,22 @@ class Settings:
         #month/season/all
         #int utc offset hours (e.g. est/dst = -4/-5)
 
-        settings = ['portrait','fill','light','60','forwards','ts','month','-5']
+        the_settings = ['portrait','fill','light','60','forwards','ts','month','-5']
         if self.path:
             try:
                 with open(self.path, 'r') as f:
-                    settings = f.read().splitlines()
+                    the_settings = f.read().splitlines()
             except FileNotFoundError:
                 pass
-        ret:list[str|int] = list(settings) #list() is like strdup, helps type checker
-        ret[3] = int(settings[3])
-        ret[7] = int(settings[7])
+        ret:list[str|int] = list(the_settings) #list() is like strdup, helps type checker
+        ret[3] = int(the_settings[3])
+        ret[7] = int(the_settings[7])
         my_replace = lambda s: (
             s.replace('forwards', 'ASC') if s.endswith('forwards') else
             s.replace('backwards', 'DESC') if s.endswith('backwards') else
             'RANDOM()'
         )
-        sorderby = 'ORDER BY '+my_replace(f'{settings[5]} {settings[4]}')
+        sorderby = 'ORDER BY '+my_replace(f'{the_settings[5]} {the_settings[4]}')
         ret.insert(6,sorderby)
         return ret
 
@@ -85,6 +85,15 @@ async def main():
     #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
 
+    settings = Settings(os.path.join(MNTPATH, 'settings.txt'))
+    #decent first time/bootup behavior: only do init() when storage path empty or nonexistent.
+    #basically, user should always boot with a drive plugged in very first time. it might?? be safe to boot with nothing mounted and nothing in storage path--up to how init() copies; run() returning immediately should be ok in main while, and file exceptions in settings constructor is also safe.
+    try:
+        size = os.path.getsize(STORAGEPATH)
+    except:
+        size=0
+    if size == 0:
+        init(MNTPATH, STORAGEPATH, settings)
     while True:
         if dev_add_evt.is_set():
             dev_add_evt.clear()
