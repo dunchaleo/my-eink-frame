@@ -1,0 +1,189 @@
+
+<style>
+
+  :root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Fira Code", monospace;
+  --font-serif: Georgia, serif;
+
+  --color-background-primary: #faf8f3;
+  --color-background-secondary: #f2ede3;
+  --color-background-tertiary: #e8e0d0;
+  --color-background-info: #eaf0f7;
+  --color-background-success: #eaf3e4;
+  --color-background-warning: #fdf4e3;
+  --color-background-danger: #fdf0ee;
+
+  --color-text-primary: #2c2820;
+  --color-text-secondary: #6b5f4e;
+  --color-text-tertiary: #9e8f7a;
+  --color-text-info: #2d5f8a;
+  --color-text-success: #3a6b18;
+  --color-text-warning: #7a4e10;
+  --color-text-danger: #8f2e2e;
+
+  --color-border-tertiary: rgba(100, 80, 50, 0.12);
+  --color-border-secondary: rgba(100, 80, 50, 0.25);
+  --color-border-primary: rgba(100, 80, 50, 0.4);
+  --color-border-info: #5a8fbf;
+  --color-border-success: #5a8f30;
+  --color-border-warning: #c08030;
+  --color-border-danger: #c05050;
+
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+}
+
+  .wrap { padding: 1.5rem 0; font-family: var(--font-sans); }
+  .section-title { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-tertiary); margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px 16px; }
+  .card-label { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 8px; }
+  .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--color-border-secondary); font-size: 13px; cursor: pointer; background: transparent; color: var(--color-text-primary); transition: background 0.1s, border-color 0.1s; }
+  .pill.active { background: var(--color-background-info); border-color: var(--color-border-info); color: var(--color-text-info); }
+  .pill:hover:not(.active) { background: var(--color-background-secondary); }
+  .num-row { display: flex; align-items: center; gap: 8px; }
+  .num-row input[type=number] { width: 80px; padding: 6px 10px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); font-size: 14px; }
+  .num-row span { font-size: 12px; color: var(--color-text-tertiary); }
+  .preview-box { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px 18px; margin-top: 20px; }
+  .preview-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-tertiary); margin: 0 0 10px; }
+  pre { margin: 0; font-family: var(--font-mono); font-size: 13px; color: var(--color-text-primary); line-height: 1.8; }
+  .actions { display: flex; gap: 10px; margin-top: 14px; }
+  .btn { padding: 8px 18px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-primary); font-size: 13px; cursor: pointer; }
+  .btn:hover { background: var(--color-background-secondary); }
+  .btn.primary { background: var(--color-background-info); border-color: var(--color-border-info); color: var(--color-text-info); }
+  .btn.primary:hover { opacity: 0.85; }
+  .copied { background: var(--color-background-success) !important; border-color: var(--color-border-success) !important; color: var(--color-text-success) !important; }
+</style>
+
+<div class="wrap">
+  <p class="section-title">Display</p>
+  <div class="grid">
+    <div class="card">
+      <p class="card-label">Orientation</p>
+      <div class="pill-group" id="orientation">
+        <button class="pill active" onclick="pick(this,'orientation')">landscape</button>
+        <button class="pill" onclick="pick(this,'orientation')">portrait</button>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-label">Mode</p>
+      <div class="pill-group" id="mode">
+        <button class="pill active" onclick="pick(this,'mode')">fill</button>
+        <button class="pill" onclick="pick(this,'mode')">fit</button>
+        <button class="pill" onclick="pick(this,'mode')">stretch</button>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-label">Background</p>
+      <div class="pill-group" id="background">
+        <button class="pill active" onclick="pick(this,'background')">light</button>
+        <button class="pill" onclick="pick(this,'background')">dark</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="section-title" style="margin-top:8px;">Playback</p>
+  <div class="grid">
+    <div class="card">
+      <p class="card-label">Seconds per frame (SPF)</p>
+      <div class="num-row">
+        <input type="number" id="spf" value="60" min="30" oninput="update()">
+        <span>seconds</span>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-label">Ordering</p>
+      <div class="pill-group" id="ordering">
+        <button class="pill active" onclick="pick(this,'ordering')">forwards</button>
+        <button class="pill" onclick="pick(this,'ordering')">backwards</button>
+        <button class="pill" onclick="pick(this,'ordering')">random</button>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-label">Sort column</p>
+      <div class="pill-group" id="sortcol">
+        <button class="pill active" onclick="pick(this,'sortcol')">ts</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="section-title" style="margin-top:8px;">Filtering</p>
+  <div class="grid">
+    <div class="card">
+      <p class="card-label">Filter mode</p>
+      <div class="pill-group" id="filtermode">
+        <button class="pill" onclick="pick(this,'filtermode')">all</button>
+        <button class="pill active" onclick="pick(this,'filtermode')">month</button>
+        <button class="pill" onclick="pick(this,'filtermode')">season</button>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-label">Timezone offset (tz)</p>
+      <div class="num-row">
+        <input type="number" id="tz" value="-5" min="-12" max="14" oninput="update()">
+        <span>hours from UTC</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-box">
+    <p class="preview-label">settings.txt preview</p>
+    <pre id="preview"></pre>
+    <div class="actions">
+      <button class="btn primary" id="copy-btn" onclick="copyFile()">Copy to clipboard</button>
+      <button class="btn" onclick="downloadFile()">Download settings.txt</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  orientation: 'landscape',
+  mode: 'fill',
+  background: 'light',
+  spf: 60,
+  ordering: 'forwards',
+  sortcol: 'ts',
+  filtermode: 'month',
+  tz: 0
+};
+
+function pick(btn, key) {
+  document.querySelectorAll('#' + key + ' .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  state[key] = btn.textContent;
+  update();
+}
+
+function update() {
+  state.spf = parseInt(document.getElementById('spf').value) || 60;
+  state.tz = parseInt(document.getElementById('tz').value) || -4;
+  document.getElementById('preview').textContent = buildFile();
+}
+
+function buildFile() {
+  return [state.orientation, state.mode, state.background, state.spf, state.ordering, state.sortcol, state.filtermode, state.tz].join('\n');
+}
+
+function copyFile() {
+  navigator.clipboard.writeText(buildFile()).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy to clipboard'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+function downloadFile() {
+  const blob = new Blob([buildFile()], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'settings.txt';
+  a.click();
+}
+
+update();
+</script>
