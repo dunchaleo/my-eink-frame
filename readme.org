@@ -1,26 +1,38 @@
 ** links
 *** solutions
+**** china
+after looking into it i'm understanding that the chinese stuff coming out in these hobby markets is superior. i dont know all the details but it seems to have something to do with shenzhen's electronics boom and now chinese goods are just more varied, unique, even innovative, often cheaper, than what adafruit and others can offer. at the cost of some of the chinese sites appearing scrappy (tons of random crap is sold on some of them with cool but really random features, a million strange brand names, all of whose software and videos look ai generated, reminds you it's a consumer hobby space), there's also an authenticity that isn't matched elsewhere. and everything is open source and gets the job done. could easily be an example of chinese tech companies providing an escape hatch for western consumers agianst their own, offering better alternatives. many such cases!
+-  major companies for e-ink stuff are waveshare and seeed. i like the idea of using small embedded devices to run them rather than rpi.
 - https://www.waveshare.com/wiki/PhotoPainter_(B)
   - waveshare has good software and guides, converting/dithering scripts, etc. photopainter works as-is, can be reflashed etc.
 - https://www.youtube.com/watch?v=9gdemeaTfyI
-  - china in general seems to have solved the e-ink picture frame many times already. they prefer small embedded devices to run them. some stuff from seeed/waveshare looks vibe coded though.
-- the western way of doing this seems to be with pimoroni's inky line of e-ink displays (NOTE see inkplate). they are not as based, and pi-only, and have a python library. they are probably easier to set up.
+- https://wiki.seeedstudio.com/getting_started_with_reterminal_e1004/
+  - another all in one full solution
+- some of these boards have UPS built in(!)
+      - https://wiki.seeedstudio.com/xiao_epaper_display_board_overview/
+- seeed/waveshare both offer line of e ink displays
+**** western
+- pimoroni: UK company with e ink displays and drivers. full rpi only
   - https://github.com/pimoroni/inky
-  - https://www.reddit.com/r/raspberry_pi/comments/1pictby/e_ink_picture_frame/
-- https://www.youtube.com/watch?v=L5PvQj1vfC4
-  - heres somebody using a full pi zero and the inky display to accomplish something close to what i want
-- https://github.com/mehdi7129/inky-photo-frame
-  - heres somebody who vibe coded something for pi zero + inky, maybe it "just works"? not ideal uploading (smb)
-- heres somebody with a pretty elegant method, using a non-pimoroni display (not dependent on their python lib) and opting for a plug-in sd card. still using a full pi though.
-  - https://www.youtube.com/watch?v=lWrWu7VYAFQ
-  - https://github.com/EnriqueNeyra/eInkFrame
-- https://github.com/FrameOS/frameos
-  - frameos seeems to make a point of "plug and play" for ANY type of display, relies on webserver + web ui. frameos CAN run on the same pi zero that's driving the frame, but MUST have a pi to be driving the frame.
-- https://kyle.cascade.family/posts/an-eink-family-calendar/
-  - this guy got around the issue of how/where to use a server by doing all image conversions/generation/hosting on his router (all in go), so they can be fetched whenever. ~online_image~ in esphome is used to get image data from url but home assistant is not running at all. all the hard stuff is done in the go code.
+- https://shop.pimoroni.com/products/inky-frame-7-3?
+  - inky-frame: full solution using pi pico(!)
+  - largest 7in
 - https://soldered.com/product/inkplate-6color-e-paper-display/
   - someone pointed out inkplate. similar to waveshare/seeed (but solderedelectronics is EU) they have almost fully "done" projects
   - displays sold with esp32 and pre flashed firmware which can do dithering and resizing(!? and converting?). cons: only 1 small color display.
+- https://paperlesspaper.de/en
+  - pretty small-scale company(?) german products with custom boards, they also have all their own software. using waveshare e-ink displays
+**** finished diy
+- https://www.reddit.com/r/raspberry_pi/comments/1pictby/e_ink_picture_frame/
+- https://www.youtube.com/watch?v=L5PvQj1vfC4
+  - heres somebody using a full pi zero and the inky display to accomplish something close to what i want
+- heres somebody with a pretty elegant method, using a non-pimoroni display (not dependent on their python lib) and opting for a plug-in sd card. still using a full pi though.
+  - https://www.youtube.com/watch?v=lWrWu7VYAFQ
+  - https://github.com/EnriqueNeyra/eInkFrame
+- https://kyle.cascade.family/posts/an-eink-family-calendar/
+  - this guy got around the issue of how/where to use a server by doing all image conversions/generation/hosting on his router (all in go), so they can be fetched whenever. ~online_image~ in esphome is used to get image data from url but home assistant is not running at all. all the hard stuff is done in the go code.
+- https://github.com/mehdi7129/inky-photo-frame
+  - heres somebody who vibe coded something for pi zero + inky, maybe it "just works"? not ideal uploading (smb)
 
 *** relevant software
 - https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/lib/waveshare_epd
@@ -28,36 +40,30 @@
   - rust and go versions???
     - https://github.com/nii236/go-waveshare-epaper
     - https://github.com/caemor/epd-waveshare
-- pimorini
+- pimoroni
   - https://github.com/pimoroni/inky
     (original inky python driver lib)
   - /third-party/ circuitpython inky drivers https://github.com/bablokb/circuitpython-inky
     - q: how similar are they to inkplate's micropython drivers?
     - only 7.5 spectra 6 supported?? what about the older non s6 13 inch??
-  - pimorini also has a product called inky-frame, largest 7in. includes pi pico.
-    - [[https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/modules/picographics/README.md#supported-displays][main driver seems to be pico graphics]] which dont support inky impression... main inky-frame github page makes point about micropython having ~190k ram and drawing to 7in display takes 150k. i still think embedded would be better if the problems of user uploads and image manipulation was solvable that way
-- frameos' drivers are all python too
-  - https://github.com/FrameOS/frameos/tree/main/backend/app/drivers
-- but inkplate is micropython designed for esp32
+  - inky-frame: [[https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/modules/picographics/README.md#supported-displays][main driver seems to be pico graphics]] which dont support inky impression... main inky-frame github page makes point about micropython having ~190k ram and drawing to 7in display takes 150k. i still think embedded would be better if the problems of user uploads and image manipulation was solvable that way
+- frameos: seeems to make a point of "plug and play" for ANY type of display, relies on webserver + web ui. frameos CAN run on the same pi zero that's driving the frame, but MUST have a pi to be driving the frame.
+  - https://github.com/FrameOS/frameos/tree/main/backend/app/drivers (all their drivers are python)
+  - https://github.com/FrameOS/frameos
+- inkplate is micropython designed for esp32/rtos
   - https://github.com/SolderedElectronics/inkplate-micropython
   - bring your own server (q: any examples where people have used inkplate w esp32 http server?)
 - (hardware)
   - helpful thread:https://forums.pimoroni.com/t/how-to-connect-pico-to-inky-impression-7-3/24715/9
   - guy with opinions: https://jamesachambers.com/raspberry-pi-zero-2-review-it-sucks/ (is adafruit's circuitpython similarly controversial against micropython?)
+
 ** idea
-the inky python library is not for micropython/circuitpython. so you have to use a full pi, not an esp32 or pi pico (though the reddit guy got that to work).
-i still dont know how the chinese way works; it's less clear but it seems to be better in some ways.
-maybe compromise with 2 main options:
-- have to keep it powered all the time: pi zero on the frame can be running a server all the time, users can connect to it and upload pictures and change settings.
-- battery powered: esp32/pico can be programmed to read data from sd/usb drive (maybe can accept any formatting, and can also take care of image conversion (or not, image data might need to be highly regular coming in)) but it's up to the user to prepare the drive with pictures first.
-- (third option): battery powered but networked, there has to be another server running that sends data to the frame (like the reddit guy)
+lots of different options to try and prioritize. mainly: build on SBC or MCU? use concurrency libs or threading/let OS handle tasks? plan for battery powered or no? have a web app to upload or use removable media? what moving parts have what tasks?
 **** for now
-commit to the pi zero, try to make it easy to redo on esp32. avoid bash scripts etc. make efforts to keep power consumption low but lean towards it being plugged in.
-most importantly, commit to an http server being run on the device and doing lan wifi, user should be able to log in on browser on phone and upload pics bare minimum.
+python/linux/pi zero 2 w. commit to an http server being run on the device and doing lan wifi, user should be able to log in on browser on phone and upload pics bare minimum.
 theres still a ton of different possible implementation details/configurations from that.
 also probably a really bad idea to have the thing driving the frame do the image conversions. needs to be a server backend job (which happens to be the same rpi zero driving the frame) or could even make client do it (webasm, you can do pillow in piodide).
 ** ideas cont.
-with one rpi zero, i need to simulate having 2 MCUs instead, or having only one MCU, or one pi and one esp, or any weird future configuration that would be pretty hard to actually work out physically.
 *** config toggle
 - switch for configuration mode: on means server is running. off means driver is running. i should design both software to specifically NOT be running at the same time. they access shared data through filesystem only.
   this switch can be the button on pimoroni inky, a master python process can be checking it and switching the server/driver processes.

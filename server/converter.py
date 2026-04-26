@@ -72,7 +72,7 @@ def build_exif_dict(image_info, date:datetime): #image.info attribute
     return exif_dict
 
 #for use in build_exif_dict and write_bytes
-def get_date(image_exif, verbose=False):
+def get_date(image_exif, verbose=False) -> datetime:
     if image_exif:
         # Make a map with tag names and grab the datetime
         exif = {ExifTags.TAGS[k]: v for k, v in image_exif.items() if k in ExifTags.TAGS and type(v) is not bytes}
