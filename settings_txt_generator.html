@@ -133,6 +133,7 @@
     <p class="preview-label">settings.txt preview</p>
     <pre id="preview"></pre>
     <div class="actions">
+      <button class="btn primary" id="apply-btn" style="display:none" onclick="writeFile()">Apply settings</button>
       <button class="btn primary" id="copy-btn" onclick="copyFile()">Copy to clipboard</button>
       <button class="btn" onclick="downloadFile()">Download settings.txt</button>
     </div>
@@ -183,6 +184,31 @@ function downloadFile() {
   a.href = URL.createObjectURL(blob);
   a.download = 'settings.txt';
   a.click();
+}
+
+let fileHandle = null;
+async function writeFile() {
+  try {
+    if (!fileHandle) {
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName: 'settings.txt',
+        types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }]
+      });
+    }
+    const writable = await fileHandle.createWritable();
+    await writable.write(buildFile());
+    await writable.close();
+
+    const btn = document.getElementById('apply-btn');
+    btn.textContent = 'Saved!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Apply settings'; btn.classList.remove('copied'); }, 1800);
+  } catch (err) {
+    if (err.name !== 'AbortError') console.error(err);
+  }
+}
+if ('showSaveFilePicker' in window) {
+  document.getElementById('apply-btn').style.display = 'inline-block';
 }
 
 update();
