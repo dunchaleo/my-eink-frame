@@ -1,3 +1,16 @@
+# pretty sure the idea of using micropython has been abandoned by now, it's not practical to run this on an esp32... so no reason not to use sqlite now. can i have something like: ?
+# CREATE TABLE files (
+#     fname TEXT PRIMARY KEY,
+#     ts INTEGER,
+#     position INTEGER,
+# );
+# and then in Meta.insert() and .compare(), similarly now it's still bad to have excess shifts,
+# UPDATE files SET position = position + 1 WHERE position >= 5;
+# INSERT INTO files (position, ts) VALUES (5,new_timestamp);
+# etc..
+# (then just have an "export db to csv" fun that server.py does on closing)
+# however, the advantage of a sqlite db taking up less ram than what's used here by Meta is undermined when the ability to use sqlite comes from using a SBC which isnt ram starved anyway
+
 import csv
 
 class Meta:
