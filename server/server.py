@@ -90,12 +90,15 @@ async def process_image(filename):
     #(dont just get exif--let this task totally finish conversion).
     #let OS handle threads by making a subprocess. blocking code can be awaited. see comment in converter.py
     #TODO make i/o pipes instead of args?
-    subcall = [sys.executable, 'converter.py', filename] + vis_args
+    file_format_str = struct_format_str(len(filename))
+    subcall = [sys.executable, 'converter.py', filename, *vis_args, file_format_str]
     subproc = await asyncio.create_subprocess_exec(
         *subcall, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    #we'll get a byte obj (can it be streamed/chunked?) from converter.py, just needs to be serialized.
+    #serialize stdout stream:
     stdout,stderr = await subproc.communicate()
-    return decode_subproc_bytes(stdout)
+    metadata = struct.unpack(file_format_str,stdout) #unpack returns multi-typed tuple
+    #(subproc needs to write equivalent of one row of files.csv to stdout as bytes)
+    return metadata
 async def start():
     insertion_listener_handle = asyncio.create_task(insertion_listener())
     server = asyncio.create_task(app.start_server(port=4000, debug=True))
@@ -103,20 +106,9 @@ async def start():
 
 ###helpers/misc
 
-def decode_subproc_bytes(stdout):
-    #dont want to be text-parsing so do struct pack/unpack. this gives you a multi-typed tuple.
-    #tuples are immutable so copy it to a list and deal with trailing nulls:
-    #TODO this is weird just make a fmt string ("@255sI") first and pass it into converter.py
-    metadata =  struct.unpack('@255sI',stdout)
-    list = [None]*len(metadata)
-    i = 0
-    for elt in metadata:
-        if(type(elt) == type(b'')):
-            list[i] = elt.rstrip(b'\x00').decode('utf-8')
-        else:
-            list[i] = elt
-        i+=1
-    return list
+#returns the format string used for binary communication with subprocess. it is structurally equivalent to one row of files.csv. for now, it's just '@{len}sI' for filename,timestamp
+struct_format_str(length):
+    return f'@{length}sI'
 
 ###setup
 Request.max_content_length = 50*1024*1024 #might want to cave and force browser to do some compression

@@ -44,7 +44,7 @@ def convert(input_image:Image.Image,o,m,b) -> Image.Image:
     return target_image
 
 #not really using this at all right now
-#might have been better for converter.py subprocess to stdout this as a dict in raw bytes
+#might have been better for converter.py subprocess to stdout this as a dict in raw bytes. right now, converter subproc is not agnostic to the structure of files.csv. could have handled that in master proc instead. but it's fine
 def build_exif_dict(image_info, date:datetime): #image.info attribute
 
     # Try to load existing exif data via piexif
@@ -71,7 +71,7 @@ def build_exif_dict(image_info, date:datetime): #image.info attribute
     #return exif_bytes
     return exif_dict
 
-#for use in build_exif_dict and write_bytes
+#for use in build_exif_dict and writing bytes to stdout
 def get_date(image_exif, verbose=False) -> datetime:
     if image_exif:
         # Make a map with tag names and grab the datetime
@@ -89,29 +89,22 @@ def get_date(image_exif, verbose=False) -> datetime:
 
     return date
 
-#this makes sure Meta.insert() can read the output bytes and is separated like files.csv entry.
-def write_bytes(filename:bytes, date:datetime, ret=False): #datetime + more for whatever other cols i decide to add
-    timestamp = int(date.timestamp())
-    out_bytes = struct.pack('@255sI',filename,timestamp)
-    sys.stdout.buffer.write(out_bytes)
-
-    if(ret):
-        return out_bytes
-
-def main(f, o, m, b, ret=False):
+def main(f, o, m, b, file_format_str, ret=False):
     register_heif_opener()
     path = f'./working/{f}' #hardcode upload path
     outpath = f'./storage/{f}.png' #hardcode storage path
+
     with Image.open(path) as image:
         log(f'converting: {f} {o} {m} {b}\n')
         my_date = get_date(image.getexif(), True)
         converted = convert(image, o, m, b)
         converted.save(outpath, format='PNG')
-    #ensure f is bytes
-    write_bytes(f'{f}'.encode('utf-8'),my_date)
 
+    #write bytes: here, make sure that Meta.insert() can read output bytes. data must be structured like a row in files.csv
+    #(struct.pack() needs bytes objs rather than py strs)
+    out_bytes = struct.pack(file_format_str, f.encode('utf-8'),int(my_date.timestamp))
     if(ret):
-        return write_bytes(f'{f}'.encode('utf-8'),my_date, ret)
+        return out_bytes
 
 if __name__ == '__main__':
-    main(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])
+    main(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])

@@ -36,7 +36,7 @@ class Meta:
         self.sortby=sortby
         self.desc=desc
     def insert(self, file:tuple): #file is not just filename, but is like serialized row of files.csv
-        #NOTE i had expected it would be easier to have to have param file:str where it's a row of the csv, but unpacking stdout from the converter subprocess seems to be smoother so we have an array metadata param here
+        #NOTE i had expected it would be easier to have to have param file:str where it's a row of the csv, but unpacking stdout from the converter subprocess seems to be smoother so we have a tuple metadata param here
         #by expected use case insertion sort is probably really good here,
         #unless user picked from their recents the wrong way,
         #then comparison just needs to be reversed first (but how can you tell?)
