@@ -1,64 +1,55 @@
 #a good power optimization and use case in general is shutting the device off in between draws and having a long time per pic. so persistent mem objects is bad here, should just have to read/write filesystem.
 #(anything under ~x mins would not benefit a lot from that but >~x mins really would, still would need a hardware wakeup timer, and x depends on bootup power spike)
 
-#stay away from csv lib here too? use file handles and primitive parsing or just split()ing
-import csv
+#i had the wrong idea at first. for potentially very low mem environments, you dont want to load a csv into mem and then index it. you just want to retrieve n bytes from a file at an offset. so the server needs to write a binary file, with fixed-size entries. e.g. 255,sizeof(int) for filename,timestamp. not a csv.
+#using a bin file, use fseek in python or fseek/lseek in C
+#this could be good to reuse for an mcu+frame that has to connect to a server. for a sbc solution it's not worth thinking about but i'm hung up on the idea that a long battery life would be the best thing about even doing this at all.
+
+import inky
 import struct
 import time
 
-metadata_path = "./../server/files.csv"
+metadata_path = "./../server/files.bin"
 interval_s = 35 #TODO settings.csv in server/
+bin_fmt_str = '255sQ' #must == Meta.bin_fmt_str
+bin_record_size = struct.calcsize(bin_fmt_str)
+def get_N():
+    with open(metadata_path, 'rb') as bf:
+        bf.seek(-4,2)
+        return bf.read(4)
+N = get_N() #N files
 
-#could do raw bytes files but maybe editable text has advantages.. reading happens very infrequently anyway
-def get_var(var:int):
-    with open('vars.csv','r') as f:
-       reader = csv.reader(f)
-       vars = next(reader) #one row
-    ret = vars[0]
-    match var:
-        case -1:
-            return vars
-        case 0: #displaying img at index ret in files csv
-            return int(ret)
-def set_var(var:int, val):
-    vars = get_var(-1)
-    vars[int] = val
-    with open('vars.csv', 'w') as f:
-        writer = csv.writer(f)
-        writer.writerow(vars)
+def run():
+    with open(metadata_path,'rb') as bf:
+        i=0
+        while i < N:
+            d = i*bin_record_size
+            bf.seek(d,0)
+            brecord = bf.read(bin_record_size)
+            metadata = decode_bin_record(brecord)
+
+            i+=1
+            if i >= N:
+                i=0
 
 
+    # with open(metadata_path, 'rb') as bf:
+    #     remaining = N*bin_record_size + 4
+    #     while remaining > 4:
+    #         chunk = bf.read(bin_record_size)
+    #         remaining -= bin_record_size
 
-class MetaCsv():
-    def __init__(self,path):
-        self.files = []
-        self.files_n:int = 0
-        with open(path,'r') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                self.files.append(row)
-        self.files_n = len(files)
-def display(idx):
-    return "calling pimoroni driver funs"
+def decode_bin_record(brecord):
+    #turn a files.bin row into a metadata tuple
 
-def main_sleep():
-    #CAN use persistent memory objects here..
-    #(still consider this process as having to restart every time user goes into the web server)
-    current = get_var(0)
-    metadata = MetaCsv(metadata_path)
+    record = struct.unpack(bin_fmt_str,brecord) # -> multi-typed tuple
+    #clear padding; make list (mutable)
+    list = [None]*len(record)
     i = 0
-    #interrupt = False
-    #while (True and (not interrupt)):
-    while True:
-        start = time.time()
-        display(current + i)
-        elapsed = time.time() - start
-        time.sleep(max(0, interval_s - elapsed))
+    for elt in record:
+        if(type(elt) == type(b'')):
+            list[i] = elt.rstrip(b'\x00').decode('utf-8')
+        else:
+            list[i] = elt
         i+=1
-        i = i % metadata.files_n
-        set_var(0, i) #frequently save idx
-        interrupt = detect_interrupt()
-
-def main_shutdown():
-    #this cant use any memory at all, have to read from fs to index files csv
-    return 0
+    return tuple(list) #stay tuple
