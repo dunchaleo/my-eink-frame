@@ -12,6 +12,7 @@
 # however, the advantage of a sqlite db taking up less ram than what's used here by Meta is undermined when the ability to use sqlite comes from using a SBC which isnt ram starved anyway
 
 import csv
+import struct
 
 class Meta:
     #Meta describes the cycling order and keeps intermediary/working data in mem before writing new stae to file, firstly initializing state by reading file.
@@ -21,6 +22,7 @@ class Meta:
         self.ordering = [] #array of indexes--this is what actually gets sorted in mem! TODO can this be made a stream/generator?
         self.sortby = 1 #default sorting is timestamp
         self.desc = False #ascending (remember this isnt a rule for the order, it's a descriptor and rule for insertion comps)
+        self.bin_fmt_str = '' #for writing files.bin, set manually
     def mwrite(self):
         #only do once on init
         with open('./files.csv', 'r') as f:
@@ -35,6 +37,12 @@ class Meta:
             writer = csv.writer(f)
             for row in self.files:
                 writer.writerow(row)
+        self.bandaid_write_bin()
+    def bandaid_write_bin(self):
+        with open('./files.bin', 'wb') as bf:
+            for row in self.files:
+                bf.write(struct.pack(self.bin_fmt_str,row[0].encode('utf-8'),int(row[1])))
+            bf.write(struct.pack('I',len(self.files))) #hide len at end, 4 bytes
     def mfree(self):
         self.files = []
         self.ordering = []

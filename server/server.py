@@ -106,13 +106,14 @@ async def start():
 
 ###helpers/misc
 
-#returns the format string used for binary communication with subprocess. it is structurally equivalent to one row of files.csv. for now, it's just '@{len}sI' for filename,timestamp
-struct_format_str(length):
-    return f'@{length}sI'
+#returns the format string used for binary communication with subprocess. it is structurally equivalent to one row of files.csv. for now, it's just '@{len}sQ' for filename,timestamp ('Q': ULL, 8 bytes)
+def struct_format_str(length) -> str:
+    return f'@{length}sQ'
 
 ###setup
 Request.max_content_length = 50*1024*1024 #might want to cave and force browser to do some compression
 server_conversion = True #convert files in browser or on device
+meta.bin_fmt_str = struct_format_str(255) #for writing files.bin, fixed length records.
 ###init
 if(server_conversion):
     #microdot example/gpio.weather has usage of a bg task running concurrently with micodot app.

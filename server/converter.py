@@ -102,7 +102,7 @@ def main(f, o, m, b, file_format_str, ret=False):
 
     #write bytes: here, make sure that Meta.insert() can read output bytes. data must be structured like a row in files.csv
     #(struct.pack() needs bytes objs rather than py strs)
-    out_bytes = struct.pack(file_format_str, f.encode('utf-8'),int(my_date.timestamp))
+    out_bytes = struct.pack(file_format_str, f.encode('utf-8'),int(my_date.timestamp()))
     if(ret):
         return out_bytes
 
