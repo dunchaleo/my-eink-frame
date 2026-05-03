@@ -107,12 +107,20 @@ async def main():
             subprocess.run(('umount', DEV))
         await run(STORAGEPATH,settings)
 def poll_udev():
-    #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available
-    device = monitor.poll(timeout=0)
-    if device and device.action == 'add':
-        #for this project, theres only one possible device, the open rpi usb port
+    #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available.
+    #(for this project, theres only one possible device, the open rpi usb port, but might still want to add checks like ``if device.get() == DEV'')
+
+    #pyudev monitor is a stream, acts as a queue, poll() is like pop(). build a history aka drain the socket, and check last action:
+    events = []
+    while True:
+        device = monitor.poll(timeout=0) #timeout=0 never blocks, can return None (but shouldnt at first since this is the callback)
+        if device:
+            events.append(device.action)
+        else:
+            break #drained
+    if events and events[-1] == 'add'
         dev_add_evt.set()
-    #NOTE in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
+    #NOTE without drain+check, in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
 
 async def run(storagepath, settings:Settings):
     #async but note each line blocks except wait_for and the timeout
