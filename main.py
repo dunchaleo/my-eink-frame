@@ -85,14 +85,15 @@ async def main():
     #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
 
-    settings = Settings(os.path.join(MNTPATH, 'settings.txt'))
     #decent first time/bootup behavior: only do init() when storage path empty or nonexistent.
-    #basically, user should always boot with a drive plugged in very first time. it might?? be safe to boot with nothing mounted and nothing in storage path--up to how init() copies; run() returning immediately should be ok in main while, and file exceptions in settings constructor is also safe.
+    #try/catch for that here, but other path existence cases are handled inside settings constructor, init(), and run().
+    #intended use: on very first boot, ensure drive plugged in. subsequent optional. you can hot swap a drive while on but not while off (have to trigger init() somehow)
     try:
         size = os.path.getsize(STORAGEPATH)
     except:
         size=0
     if size == 0:
+        settings = Settings(os.path.join(MNTPATH, 'settings.txt'))
         init(MNTPATH, STORAGEPATH, settings)
     while True:
         if dev_add_evt.is_set():
@@ -110,7 +111,7 @@ def poll_udev():
     #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available.
     #(for this project, theres only one possible device, the open rpi usb port, but might still want to add checks like ``if device.get() == DEV'')
 
-    #pyudev monitor is a stream, acts as a queue, poll() is like pop(). build a history aka drain the socket, and check last action:
+    #pyudev monitor is a stream, acts as a queue where poll() pop()s. build a history aka drain the socket, and check last action:
     events = []
     while True:
         device = monitor.poll(timeout=0) #timeout=0 never blocks, can return None (but shouldnt at first since this is the callback)
@@ -126,6 +127,7 @@ async def run(storagepath, settings:Settings):
     #async but note each line blocks except wait_for and the timeout
 
     #TODO on the fly inky 4 buttons: filter on (some in cycle), filter off (all in cycle), sort on (display next in order), sort off (display random next)
+    #better: filter toggle, sort toggle, force re-init, power btn
     display = inky.auto()
     conn = sqlite3.connect(os.path.join(storagepath, 'pics.db'))
     cursor = conn.cursor()
@@ -185,7 +187,8 @@ def init(mntpath, destpath, settings:Settings):
     #indescriminately copy all image files to host disk (destpath) and convert them immediately after all copied.
     #also create sqlite db file.
     #limitation: if user has same filename in different dirs on their drive, the latest read one will overwrite. we arent doing multiple "albums" yet.
-    #(regular sync function, does not get interrupted through copying or converting. there are some unsafe cases where bugs would appear like quickly unplugging, plugging, then unplugging again during conversions, which would set dev_add_evt since monitor sees an add when init finishes and evt loop is reopened, and the subproc mount would fail.. but why would you do that?)
+    #(regular sync function, does not get interrupted through copying or converting)
+
     register_heif_opener()
 
     #first clear destpath
