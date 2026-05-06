@@ -30,6 +30,7 @@ dev_add_evt = asyncio.Event()
 context = pyudev.Context()
 monitor = pyudev.Monitor.from_netlink(context)
 monitor.filter_by(subsystem='block', device_type='partition')
+try_init = True
 
 DEV = '/dev/sda1'
 MNTPATH = '/mnt/ext/'
@@ -86,21 +87,32 @@ async def main():
     loop.add_reader(monitor.fileno(), poll_udev)
 
     #decent first time/bootup behavior: only do init() when storage path empty or nonexistent.
-    #try/catch for that here, but other path existence cases are handled inside settings constructor, init(), and run().
+    #check for that here, but other path existence cases are handled inside settings constructor, init(), and run().
     #intended use: on very first boot, ensure drive plugged in. subsequent optional. you can hot swap a drive while on but not while off (have to trigger init() somehow)
-    try:
-        size = os.path.getsize(STORAGEPATH)
-    except:
-        size=0
-    if size == 0:
-        settings = Settings(os.path.join(MNTPATH, 'settings.txt'))
-        init(MNTPATH, STORAGEPATH, settings)
+    if os.path.exists(STORAGEPATH):
+        settings = Settings(os.path.join(STORAGEPATH, 'settings.txt'))
+        #modify said behavior slightly by allowing a bool setting to decide if init() should be run anyway providing there's a device already present before boot:
+        if try_init:
+           for device in context.list_devices(subsystem='block', device_type='partition'):
+               if device.get('ID_FS_LABEL') == DEV:
+                   dev_add_evt.set()
+    else:
+        dev_add_evt.set()
+    # if try_init:
+    #     for device in context.list_devices(subsystem='block', device_type='partition'):
+    #         if device.get('ID_FS_LABEL') == DEV:
+    #             dev_add_evt.set()
+    # elif os.path.exists(STORAGEPATH):
+    #     settings = Settings(os.path.join(STORAGEPATH, 'settings.txt'))
+    # else:
+    #     dev_add_evt.set()
+
     while True:
         if dev_add_evt.is_set():
             dev_add_evt.clear()
-            #mount device now
+            #mount device now (TODO: think abt race condition where drive disappears before here? i really think it's fine)
             subprocess.run(('mount', DEV, MNTPATH))
-            #get settings & set up storage dir with converted files and db
+            #reset settings
             settings = Settings(os.path.join(MNTPATH,'settings.txt'))
             #convert images, save in storage dir, create db (sync init() call will probably take noticeable time)
             init(MNTPATH, STORAGEPATH, settings)
@@ -119,7 +131,7 @@ def poll_udev():
             events.append(device.action)
         else:
             break #drained
-    if events and events[-1] == 'add'
+    if events and events[-1] == 'add':
         dev_add_evt.set()
     #NOTE without drain+check, in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
 
