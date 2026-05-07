@@ -25,12 +25,16 @@ import subprocess
 #claude: "add_reader is asyncio's exposure of the reactor pattern"
 #helpful: https://www.packtpub.com/en-us/product/nodejs-design-patterns-second-edition-9781785885587/chapter/1-welcome-to-the-nodejs-platform-1/section/the-reactor-pattern-ch01lvl1sec04
 
+IMAGE_EXTS = ['jpeg' 'jpg' 'png' 'gif' 'svg' 'webp' 'bmp' 'jfif' 'heic']
+
 dev_add_evt = asyncio.Event()
 
 context = pyudev.Context()
 monitor = pyudev.Monitor.from_netlink(context)
 monitor.filter_by(subsystem='block', device_type='partition')
+
 try_init = True
+SPF_PWROFF_TOL = 1200 #past this SPF setting, poweroff after draw, rely on rtc for SPF to wake
 
 DEV = '/dev/sda1'
 MNTPATH = '/mnt/ext/'
@@ -39,9 +43,13 @@ STORAGEPATH = '/var/lib/piframe-service'
 #  chown -R piframe-service:piframe-service /var/lib/piframe-service
 #  ^(TODO also set systemd service up)
 
+SETTINGS_FILENAME = 'settings.txt' #can be anywhere on removable media
+
+
 class Settings:
-    def __init__(self,path:str):
+    def __init__(self,path:str,power_threshold):
         self.path = path
+        self.power_threshold = power_threshold
         (
             self.orientation, self.mode, self.background,
             self.spf, self.direction, self.ssortcol, self.sorderby,
@@ -67,9 +75,12 @@ class Settings:
                     the_settings = f.read().splitlines()
             except FileNotFoundError:
                 pass
+        #process the settings literals and return real settings object
         ret:list[str|int] = list(the_settings) #list() is like strdup, helps type checker
+        # adjust types
         ret[3] = int(the_settings[3])
         ret[7] = int(the_settings[7])
+        # add sql query string order by
         my_replace = lambda s: (
             s.replace('forwards', 'ASC') if s.endswith('forwards') else
             s.replace('backwards', 'DESC') if s.endswith('backwards') else
@@ -77,11 +88,14 @@ class Settings:
         )
         sorderby = 'ORDER BY '+my_replace(f'{the_settings[5]} {the_settings[4]}')
         ret.insert(6,sorderby)
+        # adjust SPF: if > poweroff threshold, set to 0
+        if ret[3] >= self.power_threshold:
+            ret[3] = 0
         return ret
 
 
 async def main():
-    monitor.start()
+    monitor.start() #socket will start populating now
     loop = asyncio.get_running_loop()
     #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
@@ -90,7 +104,7 @@ async def main():
     #check for that here, but other path existence cases are handled inside settings constructor, init(), and run().
     #intended use: on very first boot, ensure drive plugged in. subsequent optional. you can hot swap a drive while on but not while off (have to trigger init() somehow)
     if os.path.exists(STORAGEPATH):
-        settings = Settings(os.path.join(STORAGEPATH, 'settings.txt'))
+        settings = Settings(os.path.join(STORAGEPATH, SETTINGS_FILENAME), SPF_PWROFF_TOL)
         #modify said behavior slightly by allowing a bool setting to decide if init() should be run anyway providing there's a device already present before boot:
         if try_init:
            for device in context.list_devices(subsystem='block', device_type='partition'):
@@ -107,18 +121,20 @@ async def main():
     # else:
     #     dev_add_evt.set()
 
+    resume_idx = 0 #TODO read from fs
+
     while True:
         if dev_add_evt.is_set():
             dev_add_evt.clear()
             #mount device now (TODO: think abt race condition where drive disappears before here? i really think it's fine)
             subprocess.run(('mount', DEV, MNTPATH))
             #reset settings
-            settings = Settings(os.path.join(MNTPATH,'settings.txt'))
+            settings = Settings(os.path.join(MNTPATH,SETTINGS_FILENAME), SPF_PWROFF_TOL)
             #convert images, save in storage dir, create db (sync init() call will probably take noticeable time)
             init(MNTPATH, STORAGEPATH, settings)
             #let init finish before unmount
             subprocess.run(('umount', DEV))
-        await run(STORAGEPATH,settings)
+        await run(STORAGEPATH,resume_idx,settings)
 def poll_udev():
     #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available.
     #(for this project, theres only one possible device, the open rpi usb port, but might still want to add checks like ``if device.get() == DEV'')
@@ -135,7 +151,7 @@ def poll_udev():
         dev_add_evt.set()
     #NOTE without drain+check, in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
 
-async def run(storagepath, settings:Settings):
+async def run(storagepath, idx:int, settings:Settings):
     #async but note each line blocks except wait_for and the timeout
 
     #TODO on the fly inky 4 buttons: filter on (some in cycle), filter off (all in cycle), sort on (display next in order), sort off (display random next)
@@ -146,7 +162,7 @@ async def run(storagepath, settings:Settings):
 
     squery = f'SELECT fname,ts FROM pics {settings.sorderby}'
     files:list[tuple[str,int]] = cursor.execute(squery).fetchall()
-    i = 0
+    i = idx
     while i < len(files):
         file:str = f'{files[i][0]}.PNG'
         fp:str = os.path.join(storagepath,file)
@@ -161,10 +177,14 @@ async def run(storagepath, settings:Settings):
                 #we "want" this to raise timeout err for normal operation.
                 #(event flag toggles (drive plugged in), Event.wait() returns, we quit run()).
                 await asyncio.wait_for(dev_add_evt.wait(), settings.spf)
+                conn.close()
                 return ''
             except asyncio.TimeoutError:
                 #SPF seconds passed
                 pass
+
+            if settings.spf == 0:
+                handle_shutdown()
 
         i+=1
         if i >= len(files):
@@ -194,6 +214,9 @@ def my_dt_season(dt:datetime):
         return 3
     elif dt.month in [9, 10, 11]:
         return 4
+
+def handle_shutdown():
+    #TODO write resume index to fs, shut down
 
 def init(mntpath, destpath, settings:Settings):
     #indescriminately copy all image files to host disk (destpath) and convert them immediately after all copied.
@@ -227,6 +250,9 @@ def init(mntpath, destpath, settings:Settings):
                 break
 
     for file in os.listdir(destpath):
+        if os.path.splitext(file)[1].upper() not in IMAGE_EXTS:
+            #filtering here, we keep settings.txt and everything else in removable media
+            continue
         fp = os.path.join(destpath,file)
         with Image.open(fp) as image:
             converted = convert(image, settings.orientation, settings.mode, settings.background)
