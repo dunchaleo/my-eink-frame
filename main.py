@@ -44,6 +44,7 @@ STORAGEPATH = '/var/lib/piframe-service'
 #  ^(TODO also set systemd service up)
 
 SETTINGS_FILENAME = 'settings.txt' #can be anywhere on removable media
+VARS_FILENAME = '.vars'
 
 
 class Settings:
@@ -123,8 +124,6 @@ async def main():
     # else:
     #     dev_add_evt.set()
 
-    resume_idx = 0 #TODO read from fs
-
     while True:
         if dev_add_evt.is_set():
             dev_add_evt.clear()
@@ -136,7 +135,7 @@ async def main():
             init(MNTPATH, STORAGEPATH, settings)
             #let init finish before unmount
             subprocess.run(('umount', DEV))
-        await run(STORAGEPATH,resume_idx,settings)
+        await run(STORAGEPATH,idx,settings)
 def poll_udev():
     #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available.
     #(for this project, theres only one possible device, the open rpi usb port, but might still want to add checks like ``if device.get() == DEV'')
@@ -153,7 +152,7 @@ def poll_udev():
         dev_add_evt.set()
     #NOTE without drain+check, in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
 
-async def run(storagepath, idx:int, settings:Settings):
+async def run(storagepath, settings:Settings):
     #async but note each line blocks except wait_for and the timeout
 
     #TODO on the fly inky 4 buttons: filter on (some in cycle), filter off (all in cycle), sort on (display next in order), sort off (display random next)
@@ -164,7 +163,7 @@ async def run(storagepath, idx:int, settings:Settings):
 
     squery = f'SELECT fname,ts FROM pics {settings.sorderby}'
     files:list[tuple[str,int]] = cursor.execute(squery).fetchall()
-    i = idx
+    i = get_resume_idx(storagepath)
     while i < len(files):
         file:str = f'{files[i][0]}.PNG'
         fp:str = os.path.join(storagepath,file)
@@ -191,6 +190,7 @@ async def run(storagepath, idx:int, settings:Settings):
         i+=1
         if i >= len(files):
             i=0
+        set_resume_idx(storagepath, i)
 def filter(ts:int,filtermode:str,tz:int):
     #filtering could be much more dynamic, instead i'm hardcoding day/month/season filtering
 
@@ -217,20 +217,17 @@ def my_dt_season(dt:datetime):
     elif dt.month in [9, 10, 11]:
         return 4
 
-def handle_shutdown(resume_idx, spf):
-    #TODO write resume index to fs, shut down
-
 def init(mntpath, destpath, settings:Settings):
     #indescriminately copy all image files to host disk (destpath) and convert them immediately after all copied.
     #also create sqlite db file.
     #limitation: if user has same filename in different dirs on their drive, the latest read one will overwrite. we arent doing multiple "albums" yet.
     #(regular sync function, does not get interrupted through copying or converting)
 
-    register_heif_opener()
-
-    #first clear destpath
+    #first clear destpath, preserving resume_idx
+    resume_idx = get_resume_idx(destpath) #returns 0 if not found
     shutil.rmtree(destpath)
     os.makedirs(destpath)
+    set_resume_idx(resume_idx,destpath)
 
     #init sql, including creating db file.
     #(we dont really need sql, deleting/creating db every time fs is changed)
@@ -251,6 +248,7 @@ def init(mntpath, destpath, settings:Settings):
                     os.remove(destfp)
                 break
 
+    register_heif_opener()
     for file in os.listdir(destpath):
         if os.path.splitext(file)[1].upper() not in IMAGE_EXTS:
             #filtering here, we keep settings.txt and everything else in removable media
@@ -267,6 +265,22 @@ def init(mntpath, destpath, settings:Settings):
 
     conn.commit()
     conn.close()
+
+def handle_shutdown(resume_idx, spf):
+    #TODO write resume index to fs, shut down
+#for get/set resume_idx, we want to read/write FS every time. that way, on power loss or manual shutdown, the position isn't lost
+def get_resume_idx(path:str) -> int:
+    try:
+        with open(os.path.join(path,VARS_FILENAME), 'r') as file:
+            return int(file.readline().strip())
+    except:
+        return 0
+def set_resume_idx(path:str, idx:int):
+    try:
+        with open(os.path.join(path,VARS_FILENAME), 'w') as file:
+            file.write(f'{idx}')
+    except:
+        pass
 
 #some of this originally from waveshare website and saschiwy/heic_converter
 def convert(input_image:Image.Image,o,m,b) -> Image.Image:
