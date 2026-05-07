@@ -165,6 +165,8 @@ async def run(storagepath, settings:Settings):
     files:list[tuple[str,int]] = cursor.execute(squery).fetchall()
     i = get_resume_idx(storagepath)
     while i < len(files):
+        set_resume_idx(storagepath,i) #set now, not after waiting
+
         file:str = f'{files[i][0]}.PNG'
         fp:str = os.path.join(storagepath,file)
         ts:int = files[i][1]
@@ -190,7 +192,6 @@ async def run(storagepath, settings:Settings):
         i+=1
         if i >= len(files):
             i=0
-        set_resume_idx(storagepath, i)
 def filter(ts:int,filtermode:str,tz:int):
     #filtering could be much more dynamic, instead i'm hardcoding day/month/season filtering
 
