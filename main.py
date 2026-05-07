@@ -25,7 +25,7 @@ import subprocess
 #claude: "add_reader is asyncio's exposure of the reactor pattern"
 #helpful: https://www.packtpub.com/en-us/product/nodejs-design-patterns-second-edition-9781785885587/chapter/1-welcome-to-the-nodejs-platform-1/section/the-reactor-pattern-ch01lvl1sec04
 
-IMAGE_EXTS = ['jpeg' 'jpg' 'png' 'gif' 'svg' 'webp' 'bmp' 'jfif' 'heic']
+IMAGE_EXTS = ['JPEG' 'JPG' 'PNG' 'GIF' 'SVG' 'WEBP' 'BMP' 'JFIF' 'HEIC']
 
 dev_add_evt = asyncio.Event()
 
@@ -53,7 +53,8 @@ class Settings:
         (
             self.orientation, self.mode, self.background,
             self.spf, self.direction, self.ssortcol, self.sorderby,
-            self.filtermode, self.tz # no filtercol, only support preset filter modes w/ 'ts'
+            self.filtermode, self.tz, # no filtercol, only support preset filter modes w/ 'ts'
+            self.rtc_spf
         ) = self.fread()
 
     def fread(self):
@@ -88,7 +89,8 @@ class Settings:
         )
         sorderby = 'ORDER BY '+my_replace(f'{the_settings[5]} {the_settings[4]}')
         ret.insert(6,sorderby)
-        # adjust SPF: if > poweroff threshold, set to 0
+        # adjust SPF: if > poweroff threshold, set to 0. append real spf.
+        ret.append(ret[3])
         if ret[3] >= self.power_threshold:
             ret[3] = 0
         return ret
@@ -184,7 +186,7 @@ async def run(storagepath, idx:int, settings:Settings):
                 pass
 
             if settings.spf == 0:
-                handle_shutdown()
+                handle_shutdown(i, settings.rtc_spf)
 
         i+=1
         if i >= len(files):
@@ -215,7 +217,7 @@ def my_dt_season(dt:datetime):
     elif dt.month in [9, 10, 11]:
         return 4
 
-def handle_shutdown():
+def handle_shutdown(resume_idx, spf):
     #TODO write resume index to fs, shut down
 
 def init(mntpath, destpath, settings:Settings):
