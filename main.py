@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import inky
+from waveshare_epd import epd7in3e
 
 import sys
 import os
+import logging
 from pathlib import Path
 import shutil
 import time
@@ -34,7 +35,8 @@ monitor = pyudev.Monitor.from_netlink(context)
 monitor.filter_by(subsystem='block', device_type='partition')
 
 try_init = True
-SPF_PWROFF_TOL = 1200 #past this SPF setting, poweroff after draw, rely on rtc for SPF to wake
+#SPF_PWROFF_TOL = 1200 #past this SPF setting, poweroff after draw, rely on rtc for SPF to wake
+SPF_PWROFF_TOL = sys.maxsize #(TODO implement this)
 
 DEV = '/dev/sda1'
 MNTPATH = '/mnt/ext/'
@@ -155,9 +157,9 @@ def poll_udev():
 async def run(storagepath, settings:Settings):
     #async but note each line blocks except wait_for and the timeout
 
-    #TODO on the fly inky 4 buttons: filter on (some in cycle), filter off (all in cycle), sort on (display next in order), sort off (display random next)
-    #better: filter toggle, sort toggle, force re-init, power btn
-    display = inky.auto()
+    #TODO add some i2c buttons: filter toggle, sort toggle, force re-init
+    epd = epd7in3e.EPD()
+    epd.init()
     conn = sqlite3.connect(os.path.join(storagepath, 'pics.db'))
     cursor = conn.cursor()
 
@@ -173,9 +175,18 @@ async def run(storagepath, settings:Settings):
 
         if filter(ts, settings.filtermode, settings.tz):
             with Image.open(fp) as image:
-                display.set_image(image)
-                display.show()
-
+                try:
+                    epd.display(epd.getbuffer(image))
+                    epd.sleep()
+                except AttributeError as e:
+                    print(f"Error: Driver module missing required attribute: {e}")
+                    return ''
+                except Exception as e:
+                    print(f"Error during display process: {e}")
+                    # Ensure proper cleanup
+                    if hasattr(epd, 'epdconfig'):
+                        epd.epdconfig.module_exit()
+                    return ''
             try:
                 #we "want" this to raise timeout err for normal operation.
                 #(event flag toggles (drive plugged in), Event.wait() returns, we quit run()).
@@ -270,6 +281,7 @@ def init(mntpath, destpath, settings:Settings):
 def handle_shutdown(resume_idx, spf):
     #TODO write resume index to fs, shut down
 #for get/set resume_idx, we want to read/write FS every time. that way, on power loss or manual shutdown, the position isn't lost
+    return ''
 def get_resume_idx(path:str) -> int:
     try:
         with open(os.path.join(path,VARS_FILENAME), 'r') as file:
@@ -355,11 +367,6 @@ def get_date(image_exif, verbose=False) -> datetime:
 
     return date
 
-#(on every draw): if filter() draw(file)
-#  (desired application: filter = fn(ts){ true if ts' season is real season now })
 
-#or query every draw??
-#  for i=0; i<max; i++, if(i==max-1) i = 0;
-#     list = select * from files where filter() sort by sortcol asc
-#     i = i % len(list) #is this all it needs?
-#     draw(list[i][0])
+
+asyncio.run(main())

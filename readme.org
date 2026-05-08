@@ -4,7 +4,8 @@ the PCB in waveshare's photopainter (for the rpi zero 2w) has an uninterruptible
 - python handles device detection with pyudev, using a file descriptor reader (asyncio add_reader). script is set up as a systemd service.
 - logic for desired/intended behavior in python
   - image converstions are all (re)done & a sqlite db is created /every time you plug in the drive/. conversions are synchronous, not interrupted.
-  - makeshift support for RTC: if seconds per frame setting exceeds a tolerance, device powers off and wakes to draw next frame
+  - [ ] makeshift support for RTC alarm: if seconds per frame setting exceeds a tolerance, device powers off and wakes to draw next frame
+    - (this might work with an extra rtc, wire int/sqw to gpio3, but on this photopainter pcb, i don't think it's wired that way, the rtc is just meant to be a hw clock not an alarm)
 - python configured as a systemd service
 - no multiple albums
 - photopainter has no exra buttons, want to add them
