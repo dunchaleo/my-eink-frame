@@ -36,7 +36,7 @@ monitor.filter_by(subsystem='block', device_type='partition')
 
 try_init = True
 #SPF_PWROFF_TOL = 1200 #past this SPF setting, poweroff after draw, rely on rtc for SPF to wake
-SPF_PWROFF_TOL = sys.maxsize #(TODO implement this)
+SPF_PWROFF_TOL = sys.maxsize #(TODO implement this, probably need another/different rtc)
 
 DEV = '/dev/sda1'
 MNTPATH = '/mnt/ext/'
@@ -175,7 +175,7 @@ async def run(storagepath, settings:Settings):
 
         if filter(ts, settings.filtermode, settings.tz):
             with Image.open(fp) as image:
-                try:
+                try: #this block from waveshare examples
                     epd.display(epd.getbuffer(image))
                     epd.sleep()
                 except AttributeError as e:
@@ -347,7 +347,15 @@ def convert(input_image:Image.Image,o,m,b) -> Image.Image:
         )
     elif m == 'stretch':
         target_image = input_image.resize((target_width,target_height))
-    return target_image
+
+    #dithering
+    # Create a palette object
+    pal_image = Image.new("P", (1,1))
+    pal_image.putpalette( (0,0,0,  255,255,255,  255,255,0,  255,0,0,  0,0,0,  0,0,255,  0,255,0) + (0,0,0)*249)
+    # The color quantization and dithering algorithms are performed, and the results are converted to RGB mode
+    quantized_image = target_image.quantize(dither=Image.Dither.FLOYDSTEINBERG, palette=pal_image).convert('RGB')
+
+    return quantized_image
 
 #from saschiwy/heic_converter
 def get_date(image_exif, verbose=False) -> datetime:
