@@ -36,3 +36,4 @@ StandardError=file:/var/log/piframe-service.log
 - i wanted to copy all files first then convert because i didnt want conversion to depend on drive being plugged in. this might have been a mistake.
 - with enough files, init() could take really long time; user will want to be able to resume. init() rming everything and recreating it is "clean" but should just have persistent db and files.
 - NEED DEBOUNCE, udev is extremely finnicky and detects tons of events when plugging in a flashdrive
+- NEED MORE BUTTONS, not only for the display-filtering but also for more control over the logic (manually re-init, etc)
