@@ -1,11 +1,34 @@
 *** branch =removable_media_z2w_photopainter=
+**** overview
 the PCB in waveshare's photopainter (for the rpi zero 2w) has an uninterruptible power supply and real time clock built in. great for prototype.
-- no web app: user plugs in flashdrive with pictures they want to display and a settings.txt.
-- python handles device detection with pyudev, using a file descriptor reader (asyncio add_reader). script is set up as a systemd service.
+- no networking. no web app: user plugs in flashdrive with pictures they want to display and a settings.txt.
+- python handles device detection with pyudev, using a file descriptor reader (asyncio add_reader).
 - logic for desired/intended behavior in python
   - image converstions are all (re)done & a sqlite db is created /every time you plug in the drive/. conversions are synchronous, not interrupted.
   - [ ] makeshift support for RTC alarm: if seconds per frame setting exceeds a tolerance, device powers off and wakes to draw next frame
     - (this might work with an extra rtc, wire int/sqw to gpio3, but on this photopainter pcb, i don't think it's wired that way, the rtc is just meant to be a hw clock not an alarm)
-- python configured as a systemd service
+- python script configured as a systemd service
 - no multiple albums
 - photopainter has no exra buttons, want to add them
+**** service
+#+begin_src
+[Unit]
+Description=E Ink Photo Frame
+
+[Service]
+Type=simple
+WorkingDirectory=/var/lib/piframe-service
+ExecStart=VENV/my_venv/bin/python3 BIN/main.py
+Restart=always
+RestartSec=5
+#could use this to build path vars in py
+Environment=PIFRAME_DATA_DIR=/var/lib/piframe-service
+#file for logging TODO append, logrotate
+StandardOutput=file:/var/log/piframe-service.log
+StandardError=file:/var/log/piframe-service.log
+#+end_src
+- [ ] need a way to make libraries more portable/set up venv better
+  - venv in /opt/piframe-venv, script in /usr/local/bin
+  - pip =waveshare-epaper= looks right (most like drivers from product page). NOTE: as product page says, must change pwr pin in epdconfig!
+- [ ] make new (non-raspios?) slimmed down os image, disable all non essential services
+- [ ] make dedicated user to run services

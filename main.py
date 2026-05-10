@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from waveshare_epd import epd7in3e
+import epaper
+epd7in3e = epaper.epaper('epd7in3e')
 
 import sys
 import os
@@ -26,7 +27,7 @@ import subprocess
 #claude: "add_reader is asyncio's exposure of the reactor pattern"
 #helpful: https://www.packtpub.com/en-us/product/nodejs-design-patterns-second-edition-9781785885587/chapter/1-welcome-to-the-nodejs-platform-1/section/the-reactor-pattern-ch01lvl1sec04
 
-IMAGE_EXTS = ['JPEG' 'JPG' 'PNG' 'GIF' 'SVG' 'WEBP' 'BMP' 'JFIF' 'HEIC']
+IMAGE_EXTS = {'.JPEG', '.JPG', '.PNG', '.GIF', '.SVG', '.WEBP', '.BMP', '.JFIF', '.HEIC'}
 
 dev_add_evt = asyncio.Event()
 
@@ -40,7 +41,7 @@ SPF_PWROFF_TOL = sys.maxsize #(TODO implement this, probably need another/differ
 
 DEV = '/dev/sda1'
 MNTPATH = '/mnt/ext/'
-STORAGEPATH = '/var/lib/piframe-service'
+STORAGEPATH = '/var/lib/piframe-service/storage'
 #  useradd --system --no-create-home piframe-service
 #  chown -R piframe-service:piframe-service /var/lib/piframe-service
 #  ^(TODO also set systemd service up)
@@ -59,6 +60,7 @@ class Settings:
             self.filtermode, self.tz, # no filtercol, only support preset filter modes w/ 'ts'
             self.rtc_spf
         ) = self.fread()
+        print([self.orientation, self.mode, self.background, self.spf, self.direction, self.ssortcol, self.sorderby, self.filtermode, self.tz, self.rtc_spf])
 
     def fread(self):
         #landscape/portrait
@@ -127,6 +129,7 @@ async def main():
     #     dev_add_evt.set()
 
     while True:
+        print('not in run()')
         if dev_add_evt.is_set():
             dev_add_evt.clear()
             #mount device now (TODO: think abt race condition where drive disappears before here? i really think it's fine)
@@ -134,10 +137,12 @@ async def main():
             #reset settings
             settings = Settings(os.path.join(MNTPATH,SETTINGS_FILENAME), SPF_PWROFF_TOL)
             #convert images, save in storage dir, create db (sync init() call will probably take noticeable time)
+            print('init() call')
             init(MNTPATH, STORAGEPATH, settings)
+            print('init() return')
             #let init finish before unmount
             subprocess.run(('umount', DEV))
-        await run(STORAGEPATH,idx,settings)
+        await run(STORAGEPATH,settings)
 def poll_udev():
     #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available.
     #(for this project, theres only one possible device, the open rpi usb port, but might still want to add checks like ``if device.get() == DEV'')
@@ -155,18 +160,24 @@ def poll_udev():
     #NOTE without drain+check, in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
 
 async def run(storagepath, settings:Settings):
+    print('run() enter')
     #async but note each line blocks except wait_for and the timeout
 
     #TODO add some i2c buttons: filter toggle, sort toggle, force re-init
-    epd = epd7in3e.EPD()
-    epd.init()
+
     conn = sqlite3.connect(os.path.join(storagepath, 'pics.db'))
     cursor = conn.cursor()
 
     squery = f'SELECT fname,ts FROM pics {settings.sorderby}'
     files:list[tuple[str,int]] = cursor.execute(squery).fetchall()
+
+    print(files)
     i = get_resume_idx(storagepath)
     while i < len(files):
+        epd = epd7in3e.EPD()
+        epd.init() #have to do this here? would rather have it at top of run()
+
+        print(f'run(): file idx {i}')
         set_resume_idx(storagepath,i) #set now, not after waiting
 
         file:str = f'{files[i][0]}.PNG'
@@ -175,6 +186,7 @@ async def run(storagepath, settings:Settings):
 
         if filter(ts, settings.filtermode, settings.tz):
             with Image.open(fp) as image:
+                print(f'attempting draw {fp}')
                 try: #this block from waveshare examples
                     epd.display(epd.getbuffer(image))
                     epd.sleep()
@@ -192,6 +204,8 @@ async def run(storagepath, settings:Settings):
                 #(event flag toggles (drive plugged in), Event.wait() returns, we quit run()).
                 await asyncio.wait_for(dev_add_evt.wait(), settings.spf)
                 conn.close()
+                if hasattr(epd, 'epdconfig'):
+                    epd.epdconfig.module_exit()
                 return ''
             except asyncio.TimeoutError:
                 #SPF seconds passed
@@ -200,9 +214,13 @@ async def run(storagepath, settings:Settings):
             if settings.spf == 0:
                 handle_shutdown(i, settings.rtc_spf)
 
+        if hasattr(epd, 'epdconfig'): #have to do this every iteration?
+            epd.epdconfig.module_exit()
+
         i+=1
         if i >= len(files):
             i=0
+            print('run() drew all files once')
 def filter(ts:int,filtermode:str,tz:int):
     #filtering could be much more dynamic, instead i'm hardcoding day/month/season filtering
 
@@ -237,7 +255,10 @@ def init(mntpath, destpath, settings:Settings):
 
     #first clear destpath, preserving resume_idx
     resume_idx = get_resume_idx(destpath) #returns 0 if not found
-    shutil.rmtree(destpath)
+    try:
+        shutil.rmtree(destpath)
+    except FileNotFoundError:
+        pass
     os.makedirs(destpath)
     set_resume_idx(resume_idx,destpath)
 
@@ -264,13 +285,15 @@ def init(mntpath, destpath, settings:Settings):
     for file in os.listdir(destpath):
         if os.path.splitext(file)[1].upper() not in IMAGE_EXTS:
             #filtering here, we keep settings.txt and everything else in removable media
+            print(f'skipping {file}')
             continue
         fp = os.path.join(destpath,file)
         with Image.open(fp) as image:
+            print(f'attempting convert {fp}')
             converted = convert(image, settings.orientation, settings.mode, settings.background)
             my_date = get_date(image.getexif(), True)
             #get something like destpath/image.heic.PNG
-            converted.save(fp, 'PNG')
+            converted.save(f'{fp}.PNG', 'PNG')
             #write record to db. pk fname doesnt need png ext
             cursor.execute('INSERT OR REPLACE INTO pics (fname, ts) VALUES (?, ?)',
                             (file, int(my_date.timestamp()))) #NOTE could use f-strings here the same way. affects when they eval?
