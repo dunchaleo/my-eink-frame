@@ -32,3 +32,7 @@ StandardError=file:/var/log/piframe-service.log
   - pip =waveshare-epaper= looks right (most like drivers from product page). NOTE: as product page says, must change pwr pin in epdconfig!
 - [ ] make new (non-raspios?) slimmed down os image, disable all non essential services
 - [ ] make dedicated user to run services
+**** testing notes
+- i wanted to copy all files first then convert because i didnt want conversion to depend on drive being plugged in. this might have been a mistake.
+- with enough files, init() could take really long time; user will want to be able to resume. init() rming everything and recreating it is "clean" but should just have persistent db and files.
+- NEED DEBOUNCE, udev is extremely finnicky and detects tons of events when plugging in a flashdrive

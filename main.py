@@ -42,11 +42,8 @@ SPF_PWROFF_TOL = sys.maxsize #(TODO implement this, probably need another/differ
 DEV = '/dev/sda1'
 MNTPATH = '/mnt/ext/'
 STORAGEPATH = '/var/lib/piframe-service/storage'
-#  useradd --system --no-create-home piframe-service
-#  chown -R piframe-service:piframe-service /var/lib/piframe-service
-#  ^(TODO also set systemd service up)
 
-SETTINGS_FILENAME = 'settings.txt' #can be anywhere on removable media
+SETTINGS_FILENAME = 'settings.txt' #in root dir of removable media
 VARS_FILENAME = '.vars'
 
 
@@ -129,7 +126,7 @@ async def main():
     #     dev_add_evt.set()
 
     while True:
-        print('not in run()')
+        print('main() loop')
         if dev_add_evt.is_set():
             dev_add_evt.clear()
             #mount device now (TODO: think abt race condition where drive disappears before here? i really think it's fine)
@@ -174,10 +171,11 @@ async def run(storagepath, settings:Settings):
     print(files)
     i = get_resume_idx(storagepath)
     while i < len(files):
-        epd = epd7in3e.EPD()
-        epd.init() #have to do this here? would rather have it at top of run()
+        print(f'run() loop: file idx {i}')
 
-        print(f'run(): file idx {i}')
+        epd = epd7in3e.EPD()
+        epd.init() #^have to do this here? would rather have it at top of run()
+
         set_resume_idx(storagepath,i) #set now, not after waiting
 
         file:str = f'{files[i][0]}.PNG'
@@ -190,11 +188,8 @@ async def run(storagepath, settings:Settings):
                 try: #this block from waveshare examples
                     epd.display(epd.getbuffer(image))
                     epd.sleep()
-                except AttributeError as e:
-                    print(f"Error: Driver module missing required attribute: {e}")
-                    return ''
                 except Exception as e:
-                    print(f"Error during display process: {e}")
+                    print(f"waveshare err: {e}")
                     # Ensure proper cleanup
                     if hasattr(epd, 'epdconfig'):
                         epd.epdconfig.module_exit()
@@ -252,6 +247,7 @@ def init(mntpath, destpath, settings:Settings):
     #also create sqlite db file.
     #limitation: if user has same filename in different dirs on their drive, the latest read one will overwrite. we arent doing multiple "albums" yet.
     #(regular sync function, does not get interrupted through copying or converting)
+    print('init() enter')
 
     #first clear destpath, preserving resume_idx
     resume_idx = get_resume_idx(destpath) #returns 0 if not found
@@ -285,11 +281,11 @@ def init(mntpath, destpath, settings:Settings):
     for file in os.listdir(destpath):
         if os.path.splitext(file)[1].upper() not in IMAGE_EXTS:
             #filtering here, we keep settings.txt and everything else in removable media
-            print(f'skipping {file}')
+            print(f'init(): skip conversion of {file}')
             continue
         fp = os.path.join(destpath,file)
         with Image.open(fp) as image:
-            print(f'attempting convert {fp}')
+            print(f'init(): attempting convert {fp}')
             converted = convert(image, settings.orientation, settings.mode, settings.background)
             my_date = get_date(image.getexif(), True)
             #get something like destpath/image.heic.PNG
