@@ -337,7 +337,7 @@ def convert(input_image:Image.Image,o,m,b) -> Image.Image:
 
     #target w,h is always 800x480
     if(o == 'portrait'):
-        input_image = input_image.transpose(Image.Transpose(ROTATE_270))
+        input_image = input_image.transpose(Image.Transpose.ROTATE_270)
 
     #(done pre processing/transposing)
 
@@ -371,6 +371,11 @@ def convert(input_image:Image.Image,o,m,b) -> Image.Image:
     elif m == 'stretch':
         target_image = input_image.resize((target_width,target_height))
 
+
+    #bandaid--driver is upside down
+    if o == 'landscape':
+        target_image = target_image.transpose(Image.Transpose.ROTATE_180)
+
     #dithering
     # Create a palette object
     pal_image = Image.new("P", (1,1))
@@ -394,7 +399,7 @@ def get_date(image_exif, verbose=False) -> datetime:
         # No EXIF data exists, use current datetime
         date = datetime.now()
         if verbose:
-            log(f'No EXIF data found for image\n')
+            print(f'No EXIF data found for image\n')
 
     return date
 
