@@ -10,7 +10,7 @@ after looking into it i'm understanding that the chinese stuff coming out in the
   - another all in one full solution
 - some of these boards have UPS built in(!)
       - https://wiki.seeedstudio.com/xiao_epaper_display_board_overview/
-- seeed/waveshare both offer line of e ink displays
+- seeed/waveshare both offer line of e ink displays with their own drivers and varying driver boards sold, different compatibilites.
 **** western
 - pimoroni: UK company with e ink displays and drivers. full rpi only
   - https://github.com/pimoroni/inky
@@ -23,6 +23,8 @@ after looking into it i'm understanding that the chinese stuff coming out in the
 - https://paperlesspaper.de/en
   - pretty small-scale company(?) german products with custom boards, they also have all their own software. using waveshare e-ink displays
 **** finished diy
+- https://github.com/rob-g2-365/waveshare_epaper_picture_frame
+  - lots of info here, this is probably the most "real" way to do this at all. custom pcbs, only relying on waveshare's minimalistic ribbon cable hat, but using the passthrough pins rather than the hat, not actually using a rpi at all, his custom pcb has an atmega chip.
 - https://www.reddit.com/r/raspberry_pi/comments/1pictby/e_ink_picture_frame/
 - https://www.youtube.com/watch?v=L5PvQj1vfC4
   - heres somebody using a full pi zero and the inky display to accomplish something close to what i want
@@ -40,6 +42,8 @@ after looking into it i'm understanding that the chinese stuff coming out in the
   - rust and go versions???
     - https://github.com/nii236/go-waveshare-epaper
     - https://github.com/caemor/epd-waveshare
+- https://github.com/Seeed-Studio/Seeed_GFX
+  - seeed's display driver boards link here. these are C.
 - pimoroni
   - https://github.com/pimoroni/inky
     (original inky python driver lib)
