@@ -21,18 +21,8 @@ import subprocess
 #waveshare driver imports, following examples
 import epaper
 epd7in3e = epaper.epaper('epd7in3e')
-#for the rest of the program, can just rely on OS time as long as it gets set here, dont have to call this lib anywhere else. assumes rtc is preset correctly!
-#TODO make sure raspios isnt fighting this by setting OS time itself
-#(instead, could also just use the raspios kernel driver, but this is more self contained)
 from waveshare_DS3231 import DS3231
 RTC = DS3231.DS3231(add = 0x68)
-RTC.SET_Hour_Mode(24)
-RTC.Read_Calendar()
-t="%02x-%02x-%02x"%(RTC.Read_Year_BCD(),RTC.Read_Month_BCD(),RTC.Read_Date_BCD())
-subprocess.run("date -s %s"%(t))
-h="%x:%x:%x"%(RTC.Read_Time_Hour_BCD(),RTC.Read_Time_Min_BCD(),RTC.Read_Time_Sec_BCD())
-subprocess.run("date -s %s"%(h))
-
 
 #notes on auto mounting and detecting device plug-ins:
 #claude made example w/ pyudev + asyncio, i found a similar usage of that here:
@@ -72,9 +62,9 @@ class Settings:
             self.orientation, self.mode, self.background,
             self.spf, self.direction, self.ssortcol, self.sorderby,
             self.filtermode, self.tz, # no filtercol, only support preset filter modes w/ 'ts'
-            self.rtc_spf
+            self.rtc_spf, self.set_rtc
         ) = self.fread()
-        print([self.orientation, self.mode, self.background, self.spf, self.direction, self.ssortcol, self.sorderby, self.filtermode, self.tz, self.rtc_spf])
+        print([self.orientation, self.mode, self.background, self.spf, self.direction, self.ssortcol, self.sorderby, self.filtermode, self.tz, self.rtc_spf, self.set_rtc])
 
     def fread(self):
         #landscape/portrait
@@ -87,6 +77,8 @@ class Settings:
 
         #month/season/all
         #int utc offset hours (e.g. est/dst = -4/-5)
+
+        #bool set rtc from internet
 
         the_settings = ['portrait','fill','light','60','forwards','ts','month','-5']
         if self.path:
@@ -277,6 +269,9 @@ def init(mntpath, destpath, settings:Settings):
     #(regular sync function, does not get interrupted through copying or converting)
     print('init() enter')
 
+    #try to set the rtc from the internet
+    run_init_rtc(settings.set_rtc, settings.tz)
+
     #first clear destpath, preserving resume_idx
     resume_idx = get_resume_idx(destpath) #returns 0 if not found
     try:
@@ -330,6 +325,21 @@ def handle_shutdown(resume_idx, spf):
     #TODO write resume index to fs, shut down
 #for get/set resume_idx, we want to read/write FS every time. that way, on power loss or manual shutdown, the position isn't lost
     return ''
+def run_init_rtc(binit_rtc:bool, tz:int):
+    #set rtc from the internet
+    subcall = [sys.executable, 'init_rtc.py', tz]
+    subprocess.run(subcall)
+
+    #for the rest of the program, can just rely on OS time as long as it gets set here, dont have to call this lib anywhere else.
+    #TODO make sure raspios isnt fighting this by setting OS time itself
+    #(instead, could also just use the raspios kernel driver, but this is more self contained)
+    RTC.SET_Hour_Mode(24)
+    RTC.Read_Calendar()
+    t="%02x-%02x-%02x"%(RTC.Read_Year_BCD(),RTC.Read_Month_BCD(),RTC.Read_Date_BCD())
+    subprocess.run("date -s %s"%(t))
+    h="%x:%x:%x"%(RTC.Read_Time_Hour_BCD(),RTC.Read_Time_Min_BCD(),RTC.Read_Time_Sec_BCD())
+    subprocess.run("date -s %s"%(h))
+
 def get_resume_idx(path:str) -> int:
     try:
         with open(os.path.join(path,VARS_FILENAME), 'r') as file:
@@ -342,6 +352,8 @@ def set_resume_idx(path:str, idx:int):
             file.write(f'{idx}')
     except:
         pass
+
+
 
 #some of this originally from waveshare website and saschiwy/heic_converter
 def convert(input_image:Image.Image,o,m,b) -> Image.Image:

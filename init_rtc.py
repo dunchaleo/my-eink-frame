@@ -6,7 +6,7 @@
 #NOTE could use ZoneInfo() instead! timezone objects can nicely handle DST (via TZ.utcoffset(), which fromtimestamp() calls from its second arg on its first arg), but timezone(timedelta()) is a constant timezone (.utcoffset() always tz). however, since we are prototyping for embedded, not caring about dst is probably good enough!
 
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import ntplib
 
 from waveshare_DS3231 import DS3231
@@ -17,7 +17,7 @@ try:
     client = ntplib.NTPClient()
     response = client.request('pool.ntp.org', version=3)
 
-    cur_dt = datetime.fromtimestamp(response.tx_time, tz)
+    cur_dt = datetime.fromtimestamp(response.tx_time, timezone(timedelta(hours=tz)))
     #print(f'time now: {cur_dt}')
 
 except Exception as e:
