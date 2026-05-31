@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-import epaper
-epd7in3e = epaper.epaper('epd7in3e')
-
 import sys
 import os
 import logging
@@ -21,11 +18,31 @@ import pyudev
 import asyncio
 import subprocess
 
+#waveshare driver imports, following examples
+import epaper
+epd7in3e = epaper.epaper('epd7in3e')
+#for the rest of the program, can just rely on OS time as long as it gets set here, dont have to call this lib anywhere else. assumes rtc is preset correctly!
+#TODO make sure raspios isnt fighting this by setting OS time itself
+#(instead, could also just use the raspios kernel driver, but this is more self contained)
+from waveshare_DS3231 import DS3231
+RTC = DS3231.DS3231(add = 0x68)
+RTC.SET_Hour_Mode(24)
+RTC.Read_Calendar()
+t="%02x-%02x-%02x"%(RTC.Read_Year_BCD(),RTC.Read_Month_BCD(),RTC.Read_Date_BCD())
+subprocess.run("date -s %s"%(t))
+h="%x:%x:%x"%(RTC.Read_Time_Hour_BCD(),RTC.Read_Time_Min_BCD(),RTC.Read_Time_Sec_BCD())
+subprocess.run("date -s %s"%(h))
+
+
 #notes on auto mounting and detecting device plug-ins:
 #claude made example w/ pyudev + asyncio, i found a similar usage of that here:
 #  https://github.com/foresto/joystickwake/blob/leave-github/joystickwake
 #claude: "add_reader is asyncio's exposure of the reactor pattern"
 #helpful: https://www.packtpub.com/en-us/product/nodejs-design-patterns-second-edition-9781785885587/chapter/1-welcome-to-the-nodejs-platform-1/section/the-reactor-pattern-ch01lvl1sec04
+
+#for systemd logging to file
+sys.stdout.reconfigure(line_buffering=True)
+
 
 IMAGE_EXTS = {'.JPEG', '.JPG', '.PNG', '.GIF', '.SVG', '.WEBP', '.BMP', '.JFIF', '.HEIC'}
 
@@ -144,6 +161,7 @@ def poll_udev():
     #runs whenever fd/socket representing udev events is readable (basically always?) and the asyncio event loop is available.
     #(for this project, theres only one possible device, the open rpi usb port, but might still want to add checks like ``if device.get() == DEV'')
 
+
     #pyudev monitor is a stream, acts as a queue where poll() pop()s. build a history aka drain the socket, and check last action:
     events = []
     while True:
@@ -152,8 +170,13 @@ def poll_udev():
             events.append(device.action)
         else:
             break #drained
+
+    #cancel any pending debounce task
+    if debounce_handle:
+        debounce_handle.cancel()
+
     if events and events[-1] == 'add':
-        dev_add_evt.set()
+       dev_add_evt.set()
     #NOTE without drain+check, in a case where some blocking code is running, and user plugs in a device, that would cause the monitor reader to find an add once the blocking is done and the event loop is open. that's good but what if they plugged but quickly unplugged during the blocking? poll still finds add, evt is set, but drive isnt really there.
 
 async def run(storagepath, settings:Settings):
@@ -182,14 +205,15 @@ async def run(storagepath, settings:Settings):
         fp:str = os.path.join(storagepath,file)
         ts:int = files[i][1]
 
-        if filter(ts, settings.filtermode, settings.tz):
+        if filter(ts, settings.filtermode, settings.tz, verbose=True):
+            print(f'run(): filter passed!')
             with Image.open(fp) as image:
                 print(f'attempting draw {fp}')
                 try: #this block from waveshare examples
                     epd.display(epd.getbuffer(image))
                     epd.sleep()
                 except Exception as e:
-                    print(f"waveshare err: {e}")
+                    print(f'waveshare err: {e}')
                     # Ensure proper cleanup
                     if hasattr(epd, 'epdconfig'):
                         epd.epdconfig.module_exit()
@@ -216,14 +240,18 @@ async def run(storagepath, settings:Settings):
         if i >= len(files):
             i=0
             print('run() drew all files once')
-def filter(ts:int,filtermode:str,tz:int):
+def filter(ts:int,filtermode:str,tz:int, verbose=False):
     #filtering could be much more dynamic, instead i'm hardcoding day/month/season filtering
 
     # we dont store python datetimes in db.
-    dt = datetime.fromtimestamp(ts, timezone(timedelta(hours=tz)))
-    # datetime.fromtimestamp(datetime.now().timestamp(), timezone(timedelta(hours=-4))).strftime("%d %m %y %I:%M%p")
+    dt = datetime.fromtimestamp(ts, tz=timezone.utc) #have to pass utc tz obj to prevent conversion to os timezone. #NOTE is it common to have exif datetimes calculated from utc or other default, like a naive camera app? or if the camera's timezone is wrong but date is right? in that case, would i want to add geographical tz calc to get_date()? probably not, wouldnt matter much for month/season filtering, and bottom line if the camera is wrong about the date, thats outside the scope of any of these features.
+    #(testing, ignore) datetime.fromtimestamp(datetime.now().timestamp(), timezone(timedelta(hours=-4))).strftime("%d %m %y %I:%M%p")
     cur_dt = datetime.now()
     cur = [cur_dt.day, cur_dt.month, my_dt_season(cur_dt)]
+    if verbose:
+        sdt = dt.strfmtime('%B %d, %Y %H:%M:%S')
+        scur_dt = cur_dt.strfmtime('%B %d, %Y %H:%M:%S')
+        print(f'format(): {sdt} @ {scur_dt}')
     if filtermode == 'day':
         return (cur[0] == dt.day) and (cur[1] == dt.month)
     elif filtermode == 'month':
@@ -256,7 +284,7 @@ def init(mntpath, destpath, settings:Settings):
     except FileNotFoundError:
         pass
     os.makedirs(destpath)
-    set_resume_idx(resume_idx,destpath)
+    set_resume_idx(destpath,resume_idx)
 
     #init sql, including creating db file.
     #(we dont really need sql, deleting/creating db every time fs is changed)
@@ -291,8 +319,9 @@ def init(mntpath, destpath, settings:Settings):
             #get something like destpath/image.heic.PNG
             converted.save(f'{fp}.PNG', 'PNG')
             #write record to db. pk fname doesnt need png ext
-            cursor.execute('INSERT OR REPLACE INTO pics (fname, ts) VALUES (?, ?)',
-                            (file, int(my_date.timestamp()))) #NOTE could use f-strings here the same way. affects when they eval?
+            squery_ins = f'INSERT OR REPLACE INTO pics (fname, ts) VALUES ({file}, {int(my_date.timestamp})'
+            print(f'init(): sqlite: {squery_ins}')
+            cursor.execute(squery_ins)
 
     conn.commit()
     conn.close()
@@ -367,17 +396,15 @@ def convert(input_image:Image.Image,o,m,b) -> Image.Image:
     elif m == 'stretch':
         target_image = input_image.resize((target_width,target_height))
 
-
-    #bandaid--driver is upside down
-    if o == 'landscape':
-        target_image = target_image.transpose(Image.Transpose.ROTATE_180)
-
     #dithering
     # Create a palette object
     pal_image = Image.new("P", (1,1))
     pal_image.putpalette( (0,0,0,  255,255,255,  255,255,0,  255,0,0,  0,0,0,  0,0,255,  0,255,0) + (0,0,0)*249)
     # The color quantization and dithering algorithms are performed, and the results are converted to RGB mode
     quantized_image = target_image.quantize(dither=Image.Dither.FLOYDSTEINBERG, palette=pal_image).convert('RGB')
+
+    #bandaid--driver is upside down
+    quantized_image = quantized_image.transpose(Image.Transpose.ROTATE_180)
 
     return quantized_image
 

@@ -12,6 +12,7 @@ the PCB in waveshare's photopainter (for the rpi zero 2w) has an uninterruptible
 - photopainter has no exra buttons, want to add them
 **** service
 #+begin_src
+##### /etc/systemd/system/piframe-service.service
 [Unit]
 Description=E Ink Photo Frame
 
@@ -23,17 +24,41 @@ Restart=always
 RestartSec=5
 #could use this to build path vars in py
 Environment=PIFRAME_DATA_DIR=/var/lib/piframe-service
-#file for logging TODO append, logrotate
+#file for logging
 StandardOutput=file:/var/log/piframe-service.log
 StandardError=file:/var/log/piframe-service.log
+
+##### /etc/logrotate.d/piframe-service
+var/log/piframe-service.log {
+   daily
+   rotate 14
+   compress
+   delaycompress
+   missingok
+   notifempty
+   copytruncate
+}
 #+end_src
-- [ ] need a way to make libraries more portable/set up venv better
-  - venv in /opt/piframe-venv, script in /usr/local/bin
-  - pip =waveshare-epaper= looks right (most like drivers from product page). NOTE: as product page says, must change pwr pin in epdconfig!
+***** libs
+need a way to make libraries more portable/set up venv better.
+- pip =waveshare-epaper= looks right (most like drivers from product page). NOTE: as product page says, must change pwr pin in epdconfig!
+- DS3231: there is =i2c-rtc=, a raspios overlay configurable in /boot/config.txt. or there are waveshare's drivers. no pip.
+  - (wget'd drivers from prodcut page and cp'd rtc libs into venv)
+  - (enable i2c on raspios)
+***** TODO on the os
 - [ ] make new (non-raspios?) slimmed down os image, disable all non essential services
 - [ ] make dedicated user to run services
+- [ ] put venv in /opt/piframe-venv, script in /usr/local/bin
+
 **** testing notes
 - i wanted to copy all files first then convert because i didnt want conversion to depend on drive being plugged in. this might have been a mistake.
 - with enough files, init() could take really long time; user will want to be able to resume. init() rming everything and recreating it is "clean" but should just have persistent db and files.
+  - implies adding a setting for "add" vs "replace"
+  - compute md5s for images and dont copy/convert if they're already there. md5 could even be primary key.
 - NEED DEBOUNCE, udev is extremely finnicky and detects tons of events when plugging in a flashdrive
 - NEED MORE BUTTONS, not only for the display-filtering but also for more control over the logic (manually re-init, etc)
+- fails on images with alpha channel (quantize())
+- need ~sys.stdout.reconfigure(line_buffering=True)~ for logging to file w systemd, use ~tail -f /var/log/piframe-service.log~
+- raspios is auto mounting stuff
+- dont hardcode =DEV=
+- why is the filtering working inconsistently?
