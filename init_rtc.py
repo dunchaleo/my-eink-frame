@@ -24,6 +24,7 @@ except Exception as e:
     print("Failed to fetch time from NTP:", e)
     sys.exit(1)
 
+#only set the rtc if the try succeeded, return on exception (like no internet)
 RTC = DS3231.DS3231(add=0x68)
 RTC.SET_Hour_Mode(24)
 RTC.SET_Time(cur_dt.hour, cur_dt.minute, cur_dt.second)

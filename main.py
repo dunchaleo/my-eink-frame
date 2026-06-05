@@ -56,13 +56,14 @@ VARS_FILENAME = '.vars'
 
 class Settings:
     def __init__(self,path:str,power_threshold):
+        self.N = 9 #const num of settings
         self.path = path
         self.power_threshold = power_threshold
         (
             self.orientation, self.mode, self.background,
             self.spf, self.direction, self.ssortcol, self.sorderby,
             self.filtermode, self.tz, # no filtercol, only support preset filter modes w/ 'ts'
-            self.rtc_spf, self.set_rtc
+            self.set_rtc, self.rtc_spf
         ) = self.fread()
         print([self.orientation, self.mode, self.background, self.spf, self.direction, self.ssortcol, self.sorderby, self.filtermode, self.tz, self.rtc_spf, self.set_rtc])
 
@@ -80,15 +81,18 @@ class Settings:
 
         #bool set rtc from internet
 
-        the_settings = ['portrait','fill','light','60','forwards','ts','month','-5']
+        the_settings = ['portrait','fill','light','60','forwards','ts','month','-5', 'true']
         if self.path:
             try:
                 with open(self.path, 'r') as f:
-                    the_settings = f.read().splitlines()
+                    the_read_settings = f.read().splitlines()
+                    i = the_settings.len()
+                    while i < self.N:
+                        the_settings.append(the_read_settings[i])
             except FileNotFoundError:
                 pass
         #process the settings literals and return real settings object
-        ret:list[str|int] = list(the_settings) #list() is like strdup, helps type checker
+        ret:list[str|int|bool] = list(the_settings) #list() is like strdup, helps type checker
         # adjust types
         ret[3] = int(the_settings[3])
         ret[7] = int(the_settings[7])
@@ -112,6 +116,8 @@ async def main():
     loop = asyncio.get_running_loop()
     #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
+
+    set_time() #set os time from rtc
 
     #decent first time/bootup behavior: only do init() when storage path empty or nonexistent.
     #check for that here, but other path existence cases are handled inside settings constructor, init(), and run().
@@ -269,7 +275,6 @@ def init(mntpath, destpath, settings:Settings):
     #(regular sync function, does not get interrupted through copying or converting)
     print('init() enter')
 
-    #try to set the rtc from the internet
     run_init_rtc(settings.set_rtc, settings.tz)
 
     #first clear destpath, preserving resume_idx
@@ -325,12 +330,12 @@ def handle_shutdown(resume_idx, spf):
     #TODO write resume index to fs, shut down
 #for get/set resume_idx, we want to read/write FS every time. that way, on power loss or manual shutdown, the position isn't lost
     return ''
-def run_init_rtc(binit_rtc:bool, tz:int):
+def run_init_rtc(init_rtc:bool, tz:int):
     #set rtc from the internet
     subcall = [sys.executable, 'init_rtc.py', tz]
     subprocess.run(subcall)
-
-    #for the rest of the program, can just rely on OS time as long as it gets set here, dont have to call this lib anywhere else.
+def set_time():
+    #for the rest of the program after calling this, can just rely on OS time as long as it gets set here, dont have to call DS3231 lib anywhere else.
     #TODO make sure raspios isnt fighting this by setting OS time itself
     #(instead, could also just use the raspios kernel driver, but this is more self contained)
     RTC.SET_Hour_Mode(24)
@@ -339,7 +344,6 @@ def run_init_rtc(binit_rtc:bool, tz:int):
     subprocess.run("date -s %s"%(t))
     h="%x:%x:%x"%(RTC.Read_Time_Hour_BCD(),RTC.Read_Time_Min_BCD(),RTC.Read_Time_Sec_BCD())
     subprocess.run("date -s %s"%(h))
-
 def get_resume_idx(path:str) -> int:
     try:
         with open(os.path.join(path,VARS_FILENAME), 'r') as file:
