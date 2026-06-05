@@ -86,9 +86,9 @@ class Settings:
             try:
                 with open(self.path, 'r') as f:
                     the_read_settings = f.read().splitlines()
-                    i = the_settings.len()
+                    i = the_read_settings.len()
                     while i < self.N:
-                        the_settings.append(the_read_settings[i])
+                        the_read_settings.append(the_settings[i])
                         i+=1
             except FileNotFoundError:
                 pass
