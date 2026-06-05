@@ -89,6 +89,7 @@ class Settings:
                     i = the_settings.len()
                     while i < self.N:
                         the_settings.append(the_read_settings[i])
+                        i+=1
             except FileNotFoundError:
                 pass
         #process the settings literals and return real settings object
