@@ -66,7 +66,6 @@ class Settings:
             self.set_rtc, self.rtc_spf
         ) = self.fread()
         print([self.orientation, self.mode, self.background, self.spf, self.direction, self.ssortcol, self.sorderby, self.filtermode, self.tz, self.rtc_spf, self.set_rtc])
-
     def fread(self):
         #landscape/portrait
         #fill/fit/stretch
@@ -85,8 +84,9 @@ class Settings:
         if self.path:
             try:
                 with open(self.path, 'r') as f:
+                    #allow settings.txt to be unfinished. should just move away from this and parse key=val lines
                     the_read_settings = f.read().splitlines()
-                    i = the_read_settings.len()
+                    i = len(the_read_settings)
                     while i < self.N:
                         the_read_settings.append(the_settings[i])
                         i+=1
@@ -98,6 +98,7 @@ class Settings:
         # adjust types
         ret[3] = int(the_settings[3])
         ret[7] = int(the_settings[7])
+        ret[8] = False if the_settings[8] == 'false' else True #try to default to true, error handling for set rtc from internet is supposed to be graceful
         # add sql query string order by
         my_replace = lambda s: (
             s.replace('forwards', 'ASC') if s.endswith('forwards') else
@@ -107,7 +108,7 @@ class Settings:
         sorderby = 'ORDER BY '+my_replace(f'{the_settings[5]} {the_settings[4]}')
         ret.insert(6,sorderby)
         # adjust SPF: if > poweroff threshold, set to 0. append real spf.
-        ret.append(ret[3])
+        ret.insert(7,ret[3])
         if ret[3] >= self.power_threshold:
             ret[3] = 0
         return ret
@@ -119,13 +120,17 @@ async def main():
     #remember, this basically means poll_udev can run whenever evt loop is open
     loop.add_reader(monitor.fileno(), poll_udev)
 
+    #attempt to init settings obj
+    settings = Settings(os.path.join(STORAGEPATH, SETTINGS_FILENAME), SPF_PWROFF_TOL)
+
+    run_init_rtc(settings.set_rtc) #attempt to set rtc from internet. fail gracefully (see subproc).
     set_time() #set os time from rtc
 
     #decent first time/bootup behavior: only do init() when storage path empty or nonexistent.
     #check for that here, but other path existence cases are handled inside settings constructor, init(), and run().
     #intended use: on very first boot, ensure drive plugged in. subsequent optional. you can hot swap a drive while on but not while off (have to trigger init() somehow)
     if os.path.exists(STORAGEPATH):
-        settings = Settings(os.path.join(STORAGEPATH, SETTINGS_FILENAME), SPF_PWROFF_TOL)
+        #settings = Settings(os.path.join(STORAGEPATH, SETTINGS_FILENAME), SPF_PWROFF_TOL)
         #modify said behavior slightly by allowing a bool setting to decide if init() should be run anyway providing there's a device already present before boot:
         if try_init:
            for device in context.list_devices(subsystem='block', device_type='partition'):
@@ -249,8 +254,8 @@ def filter(ts:int,filtermode:str,tz:int, verbose=False):
     cur_dt = datetime.now()
     cur = [cur_dt.day, cur_dt.month, my_dt_season(cur_dt)]
     if verbose:
-        sdt = dt.strfmtime('%B %d, %Y %H:%M:%S')
-        scur_dt = cur_dt.strfmtime('%B %d, %Y %H:%M:%S')
+        sdt = dt.strftime('%B %d, %Y %H:%M:%S')
+        scur_dt = cur_dt.strftime('%B %d, %Y %H:%M:%S')
         print(f'format(): {sdt} @ {scur_dt}')
     if filtermode == 'day':
         return (cur[0] == dt.day) and (cur[1] == dt.month)
@@ -276,8 +281,6 @@ def init(mntpath, destpath, settings:Settings):
     #limitation: if user has same filename in different dirs on their drive, the latest read one will overwrite. we arent doing multiple "albums" yet.
     #(regular sync function, does not get interrupted through copying or converting)
     print('init() enter')
-
-    run_init_rtc(settings.set_rtc, settings.tz)
 
     #first clear destpath, preserving resume_idx
     resume_idx = get_resume_idx(destpath) #returns 0 if not found
@@ -328,14 +331,31 @@ def init(mntpath, destpath, settings:Settings):
     conn.commit()
     conn.close()
 
+# .vars file is small. only need to keep track of a few things. can naively load it into mem and rewrite it when needed.
+def write_fvar(path:str, line:int,newval:str):
+    try:
+        with open(os.path.join(path,VARS_FILENAME), mode='r') as f:
+            lines = f.readlines()
+        lines[line] = newval
+        with open(os.path.join(path,VARS_FILENAME), mode='w') as f:
+           f.writelines(lines)
+    except:
+        pass
+def read_fvar(path:str, line:int) -> str:
+    try:
+        with open(os.path.join(path,VARS_FILENAME), mode='r') as f:
+            lines = f.readlines()
+        return lines[line]
+    except:
+        return ''
 def handle_shutdown(resume_idx, spf):
     #TODO write resume index to fs, shut down
-#for get/set resume_idx, we want to read/write FS every time. that way, on power loss or manual shutdown, the position isn't lost
     return ''
+#set rtc from the internet
 def run_init_rtc(init_rtc:bool, tz:int):
-    #set rtc from the internet
-    subcall = [sys.executable, 'init_rtc.py', tz]
-    subprocess.run(subcall)
+    subcall = [f'{sys.executable}', 'init_rtc.py', f'{tz}']
+    if init_rtc:
+        subprocess.run(subcall)
 def set_time():
     #for the rest of the program after calling this, can just rely on OS time as long as it gets set here, dont have to call DS3231 lib anywhere else.
     #TODO make sure raspios isnt fighting this by setting OS time itself
@@ -346,18 +366,12 @@ def set_time():
     subprocess.run("date -s %s"%(t))
     h="%x:%x:%x"%(RTC.Read_Time_Hour_BCD(),RTC.Read_Time_Min_BCD(),RTC.Read_Time_Sec_BCD())
     subprocess.run("date -s %s"%(h))
-def get_resume_idx(path:str) -> int:
-    try:
-        with open(os.path.join(path,VARS_FILENAME), 'r') as file:
-            return int(file.readline().strip())
-    except:
-        return 0
+#for get/set resume_idx, we want to read/write FS every time. that way, on power loss or manual shutdown, the position isn't lost
+#(resume idx is at line 0 in .vars file)
 def set_resume_idx(path:str, idx:int):
-    try:
-        with open(os.path.join(path,VARS_FILENAME), 'w') as file:
-            file.write(f'{idx}')
-    except:
-        pass
+    write_fvar(path, 0, f'{idx}')
+def get_resume_idx(path:str) -> int:
+    return int(read_fvar(path, 0))
 
 
 
